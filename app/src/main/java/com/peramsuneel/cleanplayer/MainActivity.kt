@@ -11,6 +11,9 @@ import android.provider.MediaStore
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
+import android.graphics.Bitmap
+import android.util.Size
+import android.widget.ImageView
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -29,11 +32,24 @@ import java.util.Locale
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
 class MainActivity : AppCompatActivity() {
-    private val bg = 0xFF101311.toInt()
-    private val panel = 0xFF1B211D.toInt()
-    private val accent = 0xFFB7D5A8.toInt()
-    private val text = 0xFFF3F5F2.toInt()
-    private val muted = 0xFF9BA69D.toInt()
+    private var isDark = true
+    private var isGrid = true
+    private var bg = 0xFF101820.toInt()
+    private var panel = 0xFF1B2832.toInt()
+    private var accent = 0xFFB7D5A8.toInt()
+    private var text = 0xFFF3F5F2.toInt()
+    private var muted = 0xFF9BA69D.toInt()
+    private var currentFolder: String? = null
+
+    private fun applyPalette() {
+        if (isDark) {
+            bg = 0xFF101820.toInt(); panel = 0xFF1B2832.toInt()
+            accent = 0xFFB7D5A8.toInt(); text = 0xFFF3F5F2.toInt(); muted = 0xFF9BA69D.toInt()
+        } else {
+            bg = 0xFFF4F6F3.toInt(); panel = 0xFFFFFFFF.toInt()
+            accent = 0xFF315D48.toInt(); text = 0xFF1B2922.toInt(); muted = 0xFF65736A.toInt()
+        }
+    }
     private val files = mutableListOf<MediaFile>()
     private val queue = mutableListOf<MediaFile>()
     private var player: ExoPlayer? = null
@@ -46,6 +62,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        val prefs = getSharedPreferences("clean_player_preferences", MODE_PRIVATE)
+        isDark = prefs.getBoolean("dark_theme", true)
+        isGrid = prefs.getBoolean("grid_view", true)
+        applyPalette()
         window.statusBarColor = bg
         window.navigationBarColor = bg
         root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setBackgroundColor(bg) }
@@ -113,6 +133,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHome(filter: String = "") {
         showingPlayer = false
+        currentFolder = null
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         WindowCompat.setDecorFitsSystemWindows(window, true)
         WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
@@ -120,8 +141,18 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = bg
         root.removeAllViews()
         root.orientation = LinearLayout.VERTICAL
-        val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(18), dp(18), dp(8)) }
-        header.addView(label("Clean Player", 25, text, true))
+        val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(14), dp(18), dp(8)) }
+        val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        toolbar.addView(label("Clean Player", 24, text, true), LinearLayout.LayoutParams(0, -2, 1f))
+        val viewButton = button(if (isGrid) "▦" else "☷", false)
+        viewButton.contentDescription = "Switch grid or list view"
+        toolbar.addView(viewButton, LinearLayout.LayoutParams(dp(46), dp(42)).apply { marginEnd = dp(7) })
+        viewButton.setOnClickListener { isGrid = !isGrid; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("grid_view", isGrid).apply(); showHome(search.text.toString()) }
+        val themeButton = button(if (isDark) "☀" else "☾", false)
+        themeButton.contentDescription = "Switch light or dark theme"
+        toolbar.addView(themeButton, LinearLayout.LayoutParams(dp(46), dp(42)))
+        themeButton.setOnClickListener { isDark = !isDark; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("dark_theme", isDark).apply(); applyPalette(); showHome(search.text.toString()) }
+        header.addView(toolbar)
         search = EditText(this).apply {
             hint = "Search videos, songs or folders"
             setSingleLine(true); textSize = 15f; setTextColor(this@MainActivity.text); setHintTextColor(muted)
@@ -158,24 +189,39 @@ class MainActivity : AppCompatActivity() {
         if (groups.isEmpty()) {
             content.addView(label(if (files.isEmpty()) "No media found yet. Allow access to your media library." else "No matching media found.", 15, muted, false).apply { setPadding(0, dp(25), 0, 0) })
         } else {
-            val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
-            groups.forEach { (folder, items) ->
-                val card = LinearLayout(this).apply {
-                    orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
-                    setPadding(dp(10), dp(16), dp(10), dp(16)); setBackgroundColor(panel)
+            if (isGrid) {
+                val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
+                groups.forEach { (folder, items) ->
+                    val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(9), dp(12), dp(9), dp(12)); setBackgroundColor(panel) }
+                    val preview = folderThumbnail(items)
+                    if (preview != null) card.addView(preview, LinearLayout.LayoutParams(-1, dp(94)))
+                    else card.addView(label(if (selectedTab == "Videos") "▰" else "♫", 34, accent, true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(8)) })
+                    card.addView(label(folder, 15, text, true).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
+                    card.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false).apply { gravity = Gravity.CENTER })
+                    card.setOnClickListener { showFolder(folder, items) }
+                    val params = GridLayout.LayoutParams().apply { width = 0; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f); setMargins(dp(4), dp(4), dp(4), dp(4)) }
+                    grid.addView(card, params)
                 }
-                card.addView(label(if (selectedTab == "Videos") "▰" else "♫", 34, accent, true).apply { gravity = Gravity.CENTER })
-                card.addView(label(folder, 15, text, true).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
-                card.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false).apply { gravity = Gravity.CENTER })
-                card.setOnClickListener { showFolder(folder, items) }
-                val params = GridLayout.LayoutParams().apply { width = 0; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f); setMargins(dp(4), dp(4), dp(4), dp(4)) }
-                grid.addView(card, params)
+                content.addView(grid)
+            } else {
+                groups.forEach { (folder, items) ->
+                    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(9), dp(10), dp(9)); setBackgroundColor(panel) }
+                    val preview = folderThumbnail(items)
+                    if (preview != null) row.addView(preview, LinearLayout.LayoutParams(dp(88), dp(66)).apply { marginEnd = dp(12) })
+                    else row.addView(label(if (selectedTab == "Videos") "▰" else "♫", 27, accent, true), LinearLayout.LayoutParams(dp(88), dp(66)).apply { gravity = Gravity.CENTER_VERTICAL })
+                    val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                    details.addView(label(folder, 15, text, true))
+                    details.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false))
+                    row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
+                    row.setOnClickListener { showFolder(folder, items) }
+                    content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
+                }
             }
-            content.addView(grid)
         }
     }
 
     private fun showFolder(folder: String, items: List<MediaFile>) {
+        currentFolder = folder
         root.removeAllViews()
         val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(10)) }
         val back = button("‹", false); head.addView(back, LinearLayout.LayoutParams(dp(48), dp(44))); back.setOnClickListener { showHome() }
@@ -185,13 +231,31 @@ class MainActivity : AppCompatActivity() {
         val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(5), dp(16), dp(20)) }
         scroll.addView(list); root.addView(scroll)
         items.forEachIndexed { index, file ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(12), dp(14), dp(12)); setBackgroundColor(panel) }
-            row.addView(label(if (file.isAudio) "♫  ${file.name}" else "▶  ${file.name}", 15, text, true))
-            row.addView(label(formatDuration(file.duration), 12, muted, false))
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(9), dp(10), dp(9)); setBackgroundColor(panel) }
+            val preview = mediaThumbnail(file)
+            if (preview != null) row.addView(preview, LinearLayout.LayoutParams(dp(104), dp(68)).apply { marginEnd = dp(12) })
+            else row.addView(label(if (file.isAudio) "♫" else "▶", 27, accent, true), LinearLayout.LayoutParams(dp(104), dp(68)).apply { gravity = Gravity.CENTER_VERTICAL })
+            val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            details.addView(label(file.name, 15, text, true).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
+            details.addView(label(formatDuration(file.duration), 12, muted, false))
+            row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
             val lp = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) }
             list.addView(row, lp)
             row.setOnClickListener { playItems(items, index) }
         }
+    }
+
+    private fun folderThumbnail(items: List<MediaFile>): ImageView? {
+        val firstVideo = items.firstOrNull { !it.isAudio } ?: return null
+        return mediaThumbnail(firstVideo)
+    }
+
+    private fun mediaThumbnail(file: MediaFile): ImageView? {
+        if (Build.VERSION.SDK_INT < 29 || file.isAudio) return null
+        return try {
+            val bitmap: Bitmap = contentResolver.loadThumbnail(file.uri, Size(dp(220), dp(140)), null)
+            ImageView(this).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; setBackgroundColor(panel) }
+        } catch (_: Exception) { null }
     }
 
     private fun playItems(items: List<MediaFile>, index: Int) {
@@ -314,6 +378,6 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (showingPlayer) { player?.pause(); showHome() } else super.onBackPressed()
+        if (showingPlayer) { player?.pause(); showHome() } else if (currentFolder != null) { showHome() } else super.onBackPressed()
     }
 }
