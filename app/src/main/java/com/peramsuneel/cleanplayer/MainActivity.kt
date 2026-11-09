@@ -114,7 +114,7 @@ class MainActivity : AppCompatActivity() {
         header.addView(label("Clean Player", 25, text, true))
         search = EditText(this).apply {
             hint = "Search videos, songs or folders"
-            setSingleLine(true); textSize = 15f; setTextColor(text); setHintTextColor(muted)
+            setSingleLine(true); textSize = 15f; setTextColor(this@MainActivity.text); setHintTextColor(muted)
             setPadding(dp(14), 0, dp(14), 0); setBackgroundColor(panel)
             setText(filter)
         }
@@ -227,7 +227,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun button(caption: String, primary: Boolean): Button = Button(this).apply {
         text = caption; textSize = if (primary) 18f else 13f; isAllCaps = false
-        setTextColor(if (primary) 0xFF182116.toInt() else text)
+        setTextColor(if (primary) 0xFF182116.toInt() else this@MainActivity.text)
         setBackgroundColor(if (primary) accent else panel)
         minHeight = 0; minimumHeight = 0; minWidth = 0; minimumWidth = 0
         stateListAnimator = null
