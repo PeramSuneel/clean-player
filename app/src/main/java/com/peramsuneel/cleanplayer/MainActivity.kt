@@ -140,6 +140,7 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = bg
         window.navigationBarColor = bg
         root.removeAllViews()
+        root.setBackgroundColor(bg)
         root.orientation = LinearLayout.VERTICAL
         val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(14), dp(18), dp(8)) }
         val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
