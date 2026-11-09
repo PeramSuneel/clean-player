@@ -131,6 +131,16 @@ class MainActivity : AppCompatActivity() {
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(5), dp(18), dp(30)) }
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
+        populateHomeContent(content, filter)
+        search.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { if (!showingPlayer) populateHomeContent(content, s.toString()) }
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+    }
+
+    private fun populateHomeContent(content: LinearLayout, filter: String) {
+        content.removeAllViews()
         val q = filter.trim().lowercase(Locale.getDefault())
         val visible = files.filter { it.isAudio == (selectedTab == "Audio") && (q.isBlank() || it.name.lowercase(Locale.getDefault()).contains(q) || it.folder.lowercase(Locale.getDefault()).contains(q)) }
         val groups = visible.groupBy { it.folder }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
@@ -144,8 +154,7 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
                     setPadding(dp(10), dp(16), dp(10), dp(16)); setBackgroundColor(panel)
                 }
-                val glyph = label(if (selectedTab == "Videos") "▰" else "♫", 34, accent, true).apply { gravity = Gravity.CENTER }
-                card.addView(glyph)
+                card.addView(label(if (selectedTab == "Videos") "▰" else "♫", 34, accent, true).apply { gravity = Gravity.CENTER })
                 card.addView(label(folder, 15, text, true).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
                 card.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false).apply { gravity = Gravity.CENTER })
                 card.setOnClickListener { showFolder(folder, items) }
@@ -154,18 +163,6 @@ class MainActivity : AppCompatActivity() {
             }
             content.addView(grid)
         }
-        search.addTextChangedListener(object : android.text.TextWatcher {
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) { if (!showingPlayer) renderHomeResults(s.toString()) }
-            override fun afterTextChanged(s: android.text.Editable?) {}
-        })
-    }
-
-    private var homeScroll: ScrollView? = null
-    private fun renderHomeResults(query: String) {
-        // Rebuild the folder list while preserving the search field's text.
-        showHome(query)
-        search.setSelection(search.text.length)
     }
 
     private fun showFolder(folder: String, items: List<MediaFile>) {
