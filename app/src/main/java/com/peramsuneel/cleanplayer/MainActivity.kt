@@ -15,6 +15,11 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.core.view.WindowCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.WindowInsetsControllerCompat
+import android.content.pm.ActivityInfo
+import android.widget.FrameLayout
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -108,6 +113,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun showHome(filter: String = "") {
         showingPlayer = false
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+        window.statusBarColor = bg
+        window.navigationBarColor = bg
         root.removeAllViews()
         root.orientation = LinearLayout.VERTICAL
         val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(18), dp(18), dp(8)) }
@@ -198,27 +208,79 @@ class MainActivity : AppCompatActivity() {
 
     private fun showPlayer() {
         showingPlayer = true
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        WindowCompat.setDecorFitsSystemWindows(window, false)
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
         root.removeAllViews()
-        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(12), dp(10), dp(12), dp(10)) }
-        val close = button("‹", false); top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44))); close.setOnClickListener { player?.pause(); showHome() }
-        val now = label(queue.getOrNull(currentIndex)?.name ?: "Now playing", 16, text, true)
-        top.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
-        root.addView(top)
-        val pv = PlayerView(this).apply { useController = false; setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING); player = this@MainActivity.player }
+        root.setPadding(0, 0, 0, 0)
+
+        // Keep the video surface full-screen; controls are transparent overlays inside PlayerView.
+        val pv = PlayerView(this).apply {
+            useController = false
+            setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+            player = this@MainActivity.player
+            setBackgroundColor(0xFF000000.toInt())
+            keepScreenOn = true
+        }
         playerView = pv
-        root.addView(pv, LinearLayout.LayoutParams(-1, 0, 1f))
-        val controls = LinearLayout(this).apply { gravity = Gravity.CENTER; orientation = LinearLayout.HORIZONTAL; setPadding(dp(8), dp(18), dp(8), dp(24)) }
-        val prev = button("|◀", false); val back = button("↶10", false); val toggle = button("Ⅱ", true); val forward = button("10↷", false); val next = button("▶|", false)
+        root.addView(pv, LinearLayout.LayoutParams(-1, -1))
+
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            setBackgroundColor(0x55000000)
+        }
+        val close = playerOverlayButton("‹", 26)
+        top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
+        close.setOnClickListener { player?.pause(); showHome() }
+        val now = label(queue.getOrNull(currentIndex)?.name ?: "Now playing", 15, text, true)
+        top.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
+        pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
+
+        val controls = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(10), dp(10), dp(10), dp(18))
+            setBackgroundColor(0x55000000)
+        }
+        val prev = playerOverlayButton("|◀", 17)
+        val back = playerOverlayButton("−10", 17)
+        val toggle = playerOverlayButton("Ⅱ", 24)
+        val forward = playerOverlayButton("+10", 17)
+        val next = playerOverlayButton("▶|", 17)
         listOf(prev, back, toggle, forward, next).forEachIndexed { i, b ->
-            controls.addView(b, LinearLayout.LayoutParams(0, dp(if (i == 2) 58 else 48), if (i == 2) 1.3f else 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+            controls.addView(b, LinearLayout.LayoutParams(0, dp(if (i == 2) 58 else 48), if (i == 2) 1.25f else 1f).apply {
+                setMargins(dp(3), 0, dp(3), 0)
+            })
         }
         prev.setOnClickListener { player?.seekToPreviousMediaItem() }
         back.setOnClickListener { player?.let { it.seekTo((it.currentPosition - 10_000).coerceAtLeast(0)) } }
-        toggle.setOnClickListener { player?.let { if (it.isPlaying) it.pause() else it.play(); toggle.text = if (it.isPlaying) "Ⅱ" else "▶" } }
+        toggle.setOnClickListener {
+            player?.let { if (it.isPlaying) it.pause() else it.play() }
+            toggle.text = if (player?.isPlaying == true) "Ⅱ" else "▶"
+        }
         forward.setOnClickListener { player?.let { it.seekTo((it.currentPosition + 10_000).coerceAtMost(it.duration.coerceAtLeast(0))) } }
         next.setOnClickListener { player?.seekToNextMediaItem() }
-        root.addView(controls)
+        pv.addView(controls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
         updatePlayerTitle()
+    }
+
+    private fun playerOverlayButton(caption: String, size: Int): Button = Button(this).apply {
+        text = caption
+        textSize = size.toFloat()
+        isAllCaps = false
+        setTextColor(0xFFFFFFFF.toInt())
+        setBackgroundColor(0x33000000)
+        minHeight = 0
+        minimumHeight = 0
+        minWidth = 0
+        minimumWidth = 0
+        stateListAnimator = null
+        includeFontPadding = false
     }
 
     private fun updatePlayerTitle() {
