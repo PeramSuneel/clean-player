@@ -833,6 +833,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
         rotationButton = rotate
+        val expandedOptions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            setPadding(dp(8), 0, dp(8), dp(6))
+            visibility = View.GONE
+        }
         val expand = playerOverlayButton(R.drawable.ic_player_chevron).apply {
             contentDescription = "Expand playback options"
             setOnClickListener {
@@ -851,12 +857,6 @@ class MainActivity : AppCompatActivity() {
         }
         top.addView(quickOptions, LinearLayout.LayoutParams(-1, -2))
 
-        val expandedOptions = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL or Gravity.START
-            setPadding(dp(8), 0, dp(8), dp(6))
-            visibility = View.GONE
-        }
         val speed = label("1X", 14, text, true).apply {
             gravity = Gravity.CENTER
             minWidth = dp(48)
