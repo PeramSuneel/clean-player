@@ -835,6 +835,22 @@ class MainActivity : AppCompatActivity() {
         }
         rotationButton = rotate
         quickOptions.addView(rotate, LinearLayout.LayoutParams(dp(44), dp(42)))
+        val screenshot = playerOverlayButton(android.R.drawable.ic_menu_camera).apply {
+            contentDescription = "Save screenshot"
+            setOnClickListener { capturePlayerScreenshot(); showPlayerControls(); scheduleControlsHide() }
+        }
+        quickOptions.addView(screenshot, LinearLayout.LayoutParams(dp(44), dp(42)))
+        val repeat = playerOverlayButton(R.drawable.ic_player_replay).apply {
+            contentDescription = "Repeat current video"
+            setOnClickListener { toggleRepeatOne(); showPlayerControls(); scheduleControlsHide() }
+        }
+        repeatButton = repeat
+        quickOptions.addView(repeat, LinearLayout.LayoutParams(dp(44), dp(42)))
+        val audioOnly = playerOverlayButton(R.drawable.ic_player_audio).apply {
+            contentDescription = "Toggle audio-only mode"
+            setOnClickListener { toggleAudioOnly(); showPlayerControls(); scheduleControlsHide() }
+        }
+        quickOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(44), dp(42)))
         top.addView(quickOptions, LinearLayout.LayoutParams(-1, -2))
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
