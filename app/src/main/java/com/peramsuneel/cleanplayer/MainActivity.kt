@@ -833,6 +833,147 @@ class MainActivity : AppCompatActivity() {
      * Main, search and folder surfaces draw edge-to-edge, but keep interactive content
      * inside the status bar, navigation bar and display cutout safe areas.
      */
+    private fun openLocalSubtitlePicker() {
+        try {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+                putExtra(Intent.EXTRA_MIME_TYPES, arrayOf("application/x-subrip", "text/vtt", "text/plain", "application/octet-stream"))
+            }
+            startActivityForResult(intent, subtitlePickerRequest)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Unable to open subtitle file picker", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    @Deprecated("Deprecated by Android, retained for compatibility with the existing activity flow")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode != subtitlePickerRequest || resultCode != RESULT_OK) return
+        val uri = data?.data ?: return
+        try {
+            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        } catch (_: Exception) { }
+        loadLocalSubtitle(uri)
+    }
+
+    private fun loadLocalSubtitle(uri: Uri) {
+        val resolver = contentResolver
+        val name = runCatching {
+            resolver.query(uri, arrayOf(android.provider.OpenableColumns.DISPLAY_NAME), null, null, null)?.use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
+        }.getOrNull() ?: "Subtitle"
+        val extension = name.substringAfterLast('.', "").lowercase(Locale.ROOT)
+        if (extension !in setOf("srt", "vtt", "ass", "ssa")) {
+            Toast.makeText(this, "Choose an .srt, .vtt, .ass or .ssa subtitle file", Toast.LENGTH_LONG).show()
+            return
+        }
+        try {
+            thumbnailExecutor.execute {
+                val cues = try {
+                    resolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use {
+                        parseSubtitleCues(it.readText(), extension)
+                    } ?: emptyList()
+                } catch (_: Exception) { emptyList() }
+                onlineHandler.post {
+                    if (!showingPlayer) return@post
+                    if (cues.isEmpty()) {
+                        Toast.makeText(this, "No readable subtitle cues found in $name", Toast.LENGTH_LONG).show()
+                    } else {
+                        subtitleCues = cues
+                        startSubtitleUpdates()
+                        Toast.makeText(this, "Loaded $name", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            Toast.makeText(this, "Could not load subtitle file", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun parseSubtitleCues(source: String, extension: String): List<SubtitleCue> {
+        val normalized = source.removePrefix("\uFEFF").replace("\r\n", "\n").replace('\r', '\n')
+        val result = mutableListOf<SubtitleCue>()
+        val timePattern = Regex("(?:(\\d{1,2}):)?(\\d{1,2}):(\\d{2})[,.](\\d{1,3})")
+        fun timeMs(value: String): Long? {
+            val m = timePattern.find(value) ?: return null
+            val h = m.groupValues[1].ifBlank { "0" }.toLongOrNull() ?: 0L
+            val min = m.groupValues[2].toLongOrNull() ?: return null
+            val sec = m.groupValues[3].toLongOrNull() ?: return null
+            val ms = m.groupValues[4].padEnd(3, '0').take(3).toLongOrNull() ?: 0L
+            return ((h * 3600 + min * 60 + sec) * 1000 + ms)
+        }
+        if (extension == "ass" || extension == "ssa") {
+            normalized.lineSequence().filter { it.startsWith("Dialogue:", true) }.forEach { line ->
+                val fields = line.substringAfter(':').split(',', limit = 10)
+                if (fields.size == 10) {
+                    val start = timeMs(fields[1]) ?: return@forEach
+                    val end = timeMs(fields[2]) ?: return@forEach
+                    val body = fields[9].substringAfter('}', fields[9])
+                        .replace(Regex("\\\\[Nn]"), "\n")
+                        .replace(Regex("\\{[^}]*}"), "").trim()
+                    if (body.isNotBlank() && end > start) result.add(SubtitleCue(start, end, body))
+                }
+            }
+        } else {
+            normalized.split(Regex("\n\\s*\n")).forEach { block ->
+                val lines = block.lines().map { it.trim() }.filter { it.isNotEmpty() }
+                val timeLine = lines.firstOrNull { it.contains("-->") } ?: return@forEach
+                val parts = timeLine.split("-->", limit = 2)
+                val start = timeMs(parts[0].trim()) ?: return@forEach
+                val end = timeMs(parts[1].trim().substringBefore(' ')) ?: return@forEach
+                val textLines = lines.dropWhile { !it.contains("-->") }.drop(1)
+                val body = textLines.joinToString("\n").replace(Regex("<[^>]+>"), "").trim()
+                if (body.isNotBlank() && end > start) result.add(SubtitleCue(start, end, body))
+            }
+        }
+        return result.sortedBy { it.startMs }
+    }
+
+    private fun startSubtitleUpdates() {
+        stopSubtitleUpdates()
+        val task = object : Runnable {
+            override fun run() {
+                if (!showingPlayer || subtitleCues.isEmpty()) {
+                    subtitleOverlay?.visibility = View.GONE
+                    subtitleUpdateRunnable = null
+                    return
+                }
+                try {
+                    val position = player?.currentPosition ?: 0L
+                    val cue = subtitleCues.firstOrNull { position >= it.startMs && position < it.endMs }
+                    subtitleOverlay?.apply {
+                        text = cue?.text.orEmpty()
+                        textSize = when (getSharedPreferences("clean_player_subtitles", MODE_PRIVATE).getString("size", "Medium")) {
+                            "Small" -> 15f
+                            "Large" -> 22f
+                            else -> 18f
+                        }
+                        visibility = if (cue == null) View.GONE else View.VISIBLE
+                    }
+                } catch (_: Exception) {
+                    subtitleOverlay?.visibility = View.GONE
+                }
+                onlineHandler.postDelayed(this, 120L)
+            }
+        }
+        subtitleUpdateRunnable = task
+        onlineHandler.post(task)
+    }
+
+    private fun stopSubtitleUpdates() {
+        subtitleUpdateRunnable?.let { onlineHandler.removeCallbacks(it) }
+        subtitleUpdateRunnable = null
+    }
+
+    private fun clearLocalSubtitles() {
+        stopSubtitleUpdates()
+        subtitleCues = emptyList()
+        subtitleOverlay?.text = ""
+        subtitleOverlay?.visibility = View.GONE
+    }
+
     private fun showPlayerOptionsMenu(anchor: View) {
         try {
             val entries = listOf("Audio", "Subtitles", "Aspect ratio")
