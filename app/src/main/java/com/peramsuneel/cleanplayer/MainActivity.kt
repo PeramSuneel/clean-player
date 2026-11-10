@@ -70,6 +70,7 @@ private const val PLAYER_SMOOTH_UI_ENABLED = true
 private const val SUBTITLE_SIZE_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
+private const val PLAYER_TOP_LEFT_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -722,7 +723,7 @@ class MainActivity : AppCompatActivity() {
         }
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
             setPadding(dp(8), dp(6), dp(8), dp(2))
         }
         val close = playerOverlayButton(R.drawable.ic_player_back)
@@ -733,7 +734,7 @@ class MainActivity : AppCompatActivity() {
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
         playerTitleView = now
-        toolbar.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
+        toolbar.addView(now, LinearLayout.LayoutParams(0, -2, 0.5f))
         val audioTrack = playerOverlayButton(R.drawable.ic_player_audio).apply {
             contentDescription = "Select audio track"
             setOnClickListener { showAudioTrackMenu(this) }
@@ -802,8 +803,6 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { showPlaybackSpeedMenu(this) }
         }
         quickOptions.addView(speed, LinearLayout.LayoutParams(dp(54), dp(42)))
-        val quickSpacer = View(this)
-        quickOptions.addView(quickSpacer, LinearLayout.LayoutParams(0, 1, 1f))
         val rotate = playerOverlayButton(R.drawable.ic_player_rotate).apply {
             contentDescription = "Rotate screen"
         }
