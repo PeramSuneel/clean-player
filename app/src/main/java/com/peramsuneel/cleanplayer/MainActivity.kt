@@ -2,6 +2,7 @@ package com.peramsuneel.cleanplayer
 
 import android.Manifest
 import android.content.ContentUris
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
@@ -59,6 +60,10 @@ private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 private const val MUTE_BUTTON_ENABLED = true
 private const val REPLAY_AT_END_ENABLED = true
 private const val PLAYER_OPTIONS_ENABLED = true
+private const val LOCAL_SUBTITLES_ENABLED = true
+private const val LOCAL_SUBTITLE_PICKER_REQUEST = 73
+
+private data class SubtitleCue(val startMs: Long, val endMs: Long, val text: String)
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -264,6 +269,9 @@ class MainActivity : AppCompatActivity() {
     private var rotationButton: Button? = null
     private var playerOptionsPopup: PopupWindow? = null
     private var playerOptionsOpen = false
+    private var subtitleOverlay: TextView? = null
+    private var subtitleCues: List<SubtitleCue> = emptyList()
+    private var subtitleUpdateRunnable: Runnable? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -579,6 +587,18 @@ class MainActivity : AppCompatActivity() {
         }
         playerView = pv
         root.addView(pv, LinearLayout.LayoutParams(-1, -1))
+        subtitleOverlay = TextView(this).apply {
+            setTextColor(Color.WHITE)
+            textSize = 18f
+            gravity = Gravity.CENTER
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            setShadowLayer(dp(3).toFloat(), 0f, dp(2).toFloat(), Color.BLACK)
+            setBackgroundColor(0x55000000)
+            visibility = View.GONE
+        }
+        pv.addView(subtitleOverlay, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM or Gravity.CENTER_HORIZONTAL).apply {
+            leftMargin = dp(24); rightMargin = dp(24); bottomMargin = dp(76)
+        })
 
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
@@ -1054,7 +1074,7 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (_: Exception) { }
         options.add("Load from storage" to {
-            Toast.makeText(this, "Local subtitle loading is coming in the next stage", Toast.LENGTH_SHORT).show()
+            if (LOCAL_SUBTITLES_ENABLED) openLocalSubtitlePicker()
         })
         options.add("Search online" to {
             Toast.makeText(this, "Online subtitle search is coming in a later stage", Toast.LENGTH_SHORT).show()
