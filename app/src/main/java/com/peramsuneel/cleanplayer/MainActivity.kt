@@ -1576,9 +1576,7 @@ class MainActivity : AppCompatActivity() {
         scaleType = ImageView.ScaleType.CENTER_INSIDE
         setPadding(dp(10), dp(10), dp(10), dp(10))
         setBackgroundResource(android.R.drawable.list_selector_background)
-        minHeight = 0
         minimumHeight = 0
-        minWidth = 0
         minimumWidth = 0
         stateListAnimator = null
     }
