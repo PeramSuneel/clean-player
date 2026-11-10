@@ -67,6 +67,7 @@ private const val SEEK_PREVIEW_ENABLED = true
 private const val PLAYER_VECTOR_ICONS_ENABLED = true
 private const val PLAYER_PALETTE_ENABLED = true
 private const val PLAYER_SMOOTH_UI_ENABLED = true
+private const val SUBTITLE_SIZE_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 
@@ -610,6 +611,12 @@ class MainActivity : AppCompatActivity() {
             keepScreenOn = true
         }
         playerView = pv
+        if (SUBTITLE_SIZE_ENABLED) {
+            try {
+                val savedSize = getSharedPreferences("clean_player_subtitles", MODE_PRIVATE).getString("text_size", "Medium") ?: "Medium"
+                applySubtitleTextSize(savedSize, false)
+            } catch (_: Exception) { }
+        }
         root.addView(pv, LinearLayout.LayoutParams(-1, -1))
 
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
@@ -968,6 +975,16 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         } catch (_: Exception) { }
+        if (SUBTITLE_SIZE_ENABLED) {
+            try {
+                val savedSize = getSharedPreferences("clean_player_subtitles", MODE_PRIVATE).getString("text_size", "Medium") ?: "Medium"
+                listOf("Small", "Medium", "Large").forEach { size ->
+                    options.add("${if (savedSize == size) "✓ " else ""}$size subtitle text" to {
+                        applySubtitleTextSize(size)
+                    })
+                }
+            } catch (_: Exception) { }
+        }
         options.add("Load from storage" to {
             if (SUBTITLE_FILE_ENABLED) {
                 try {
@@ -1029,6 +1046,25 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Subtitle loaded", Toast.LENGTH_SHORT).show()
         } catch (_: Exception) {
             Toast.makeText(this, "Couldn't load subtitle; video continues", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun applySubtitleTextSize(size: String, persist: Boolean = true) {
+        if (!SUBTITLE_SIZE_ENABLED) return
+        try {
+            val subtitleView = playerView?.subtitleView ?: return
+            val sizeSp = when (size) {
+                "Small" -> 14f
+                "Large" -> 22f
+                else -> 18f
+            }
+            subtitleView.setFixedTextSize(android.util.TypedValue.COMPLEX_UNIT_SP, sizeSp)
+            if (persist) {
+                getSharedPreferences("clean_player_subtitles", MODE_PRIVATE)
+                    .edit().putString("text_size", size).apply()
+            }
+        } catch (_: Exception) {
+            Toast.makeText(this, "Couldn't change subtitle size", Toast.LENGTH_SHORT).show()
         }
     }
 
