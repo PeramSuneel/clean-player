@@ -93,8 +93,8 @@ private class PlayerSeekBar(
     private var bufferedMs = 0L
     private var dragging = false
     private var targetMs = 0L
-    private val sideInset get() = 48f * density
-    private val trackY get() = height - 14f * density
+    private val sideInset get() = 58f * density
+    private val trackY get() = height / 2f
     private fun trackWidth() = (width - sideInset * 2f).coerceAtLeast(1f)
     private fun fraction(value: Long) = (value.toFloat() / durationMs.coerceAtLeast(1L)).coerceIn(0f, 1f)
     private fun positionFor(value: Long) = sideInset + trackWidth() * fraction(value)
@@ -102,7 +102,7 @@ private class PlayerSeekBar(
     init {
         isClickable = true
         contentDescription = "Video progress"
-        minimumHeight = (64f * density).toInt()
+        minimumHeight = (48f * density).toInt()
     }
 
     fun update(position: Long, duration: Long, buffered: Long) {
@@ -120,10 +120,10 @@ private class PlayerSeekBar(
         val right = width - sideInset
         val y = trackY
         textPaint.textAlign = android.graphics.Paint.Align.LEFT
-        canvas.drawText(formatTime(positionMs), 0f, 17f * density, textPaint)
+        canvas.drawText(formatTime(positionMs), 0f, y + 4f * density, textPaint)
+        textPaint.textAlign = android.graphics.Paint.Align.RIGHT
+        canvas.drawText(formatTime(durationMs), width.toFloat(), y + 4f * density, textPaint)
         if (durationMs > 0L) {
-            textPaint.textAlign = android.graphics.Paint.Align.RIGHT
-            canvas.drawText(formatTime(durationMs), width.toFloat(), 17f * density, textPaint)
             canvas.drawLine(left, y, right, y, trackPaint)
             if (bufferedMs > 0L) canvas.drawLine(left, y, positionFor(bufferedMs.coerceAtMost(durationMs)), y, bufferedPaint)
             val thumbX = positionFor(if (dragging) targetMs else positionMs)
@@ -134,7 +134,7 @@ private class PlayerSeekBar(
                 val bubbleWidth = textPaint.measureText(value) + 20f * density
                 val bubbleHeight = 25f * density
                 val bubbleLeft = (thumbX - bubbleWidth / 2f).coerceIn(0f, width - bubbleWidth)
-                val bubbleTop = 22f * density
+                val bubbleTop = (height - bubbleHeight) / 2f
                 canvas.drawRoundRect(bubbleLeft, bubbleTop, bubbleLeft + bubbleWidth, bubbleTop + bubbleHeight, 8f * density, 8f * density, bubblePaint)
                 textPaint.textAlign = android.graphics.Paint.Align.CENTER
                 canvas.drawText(value, bubbleLeft + bubbleWidth / 2f, bubbleTop + 17f * density, textPaint)
@@ -666,6 +666,42 @@ class MainActivity : AppCompatActivity() {
         }
         playerTitleView = now
         top.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
+        val mute = if (MUTE_BUTTON_ENABLED) {
+            val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            if (currentVolume > 0) lastAudibleVolume = currentVolume
+            playerOverlayButton(if (currentVolume == 0) "×" else "🔊", 17).apply {
+                contentDescription = if (currentVolume == 0) "Unmute audio" else "Mute audio"
+                setOnClickListener {
+                    try {
+                        val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                        val now = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                        val maximum = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                        if (now > 0) {
+                            lastAudibleVolume = now
+                            manager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+                        } else {
+                            val restore = lastAudibleVolume.takeIf { it > 0 } ?: (maximum / 2).coerceAtLeast(1)
+                            manager.setStreamVolume(AudioManager.STREAM_MUSIC, restore.coerceAtMost(maximum), 0)
+                        }
+                        val muted = manager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0
+                        text = if (muted) "×" else "🔊"
+                        contentDescription = if (muted) "Unmute audio" else "Mute audio"
+                        showPlayerControls()
+                        scheduleControlsHide()
+                    } catch (_: Exception) {
+                        // Keep playback available if the device blocks stream-volume changes.
+                    }
+                }
+            }
+        } else null
+        playerMuteButton = mute
+        if (mute != null) top.addView(mute, LinearLayout.LayoutParams(dp(44), dp(44)))
+        val rotate = playerOverlayButton("⟳", 22).apply {
+            contentDescription = "Rotate screen"
+        }
+        rotationButton = rotate
+        top.addView(rotate, LinearLayout.LayoutParams(dp(44), dp(44)))
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
@@ -690,7 +726,7 @@ class MainActivity : AppCompatActivity() {
             }
         )
         playerSeekBar = seekBar
-        bottomPanel.addView(seekBar, LinearLayout.LayoutParams(-1, dp(64)))
+        bottomPanel.addView(seekBar, LinearLayout.LayoutParams(-1, dp(52)))
 
         val controls = LinearLayout(this).apply {
             gravity = Gravity.CENTER
@@ -702,40 +738,9 @@ class MainActivity : AppCompatActivity() {
         val toggle = playerOverlayButton(if (player?.isPlaying == true) "Ⅱ" else "▶", 24)
         val forward = playerOverlayButton("+10", 17)
         val next = playerOverlayButton("▶|", 17)
-        val mute = if (MUTE_BUTTON_ENABLED) {
-            val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
-            if (currentVolume > 0) lastAudibleVolume = currentVolume
-            playerOverlayButton(if (currentVolume == 0) "×" else "🔊", 17).apply {
-                contentDescription = if (currentVolume == 0) "Unmute audio" else "Mute audio"
-                setOnClickListener {
-                    val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                    val now = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    val maximum = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                    if (now > 0) {
-                        lastAudibleVolume = now
-                        manager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
-                    } else {
-                        val restore = lastAudibleVolume.takeIf { it > 0 } ?: (maximum / 2).coerceAtLeast(1)
-                        manager.setStreamVolume(AudioManager.STREAM_MUSIC, restore.coerceAtMost(maximum), 0)
-                    }
-                    val muted = manager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0
-                    text = if (muted) "×" else "🔊"
-                    contentDescription = if (muted) "Unmute audio" else "Mute audio"
-                    showPlayerControls()
-                    scheduleControlsHide()
-                }
-            }
-        } else null
-        playerMuteButton = mute
-        val rotate = playerOverlayButton("⟳", 22).apply {
-            contentDescription = "Rotate screen"
-        }
-        rotationButton = rotate
+
         playPauseButton = toggle
         val controlButtons = mutableListOf(prev, back, toggle, forward, next)
-        if (mute != null) controlButtons.add(mute)
-        controlButtons.add(rotate)
         controlButtons.forEachIndexed { i, b ->
             controls.addView(b, LinearLayout.LayoutParams(0, dp(if (b === toggle) 58 else 48), if (b === toggle) 1.25f else 1f).apply {
                 setMargins(dp(3), 0, dp(3), 0)
