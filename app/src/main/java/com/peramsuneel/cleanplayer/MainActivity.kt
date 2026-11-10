@@ -62,6 +62,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashReportManager.install(applicationContext)
         val prefs = getSharedPreferences("clean_player_preferences", MODE_PRIVATE)
         isDark = prefs.getBoolean("dark_theme", true)
         isGrid = prefs.getBoolean("grid_view", true)
@@ -72,6 +73,7 @@ class MainActivity : AppCompatActivity() {
         setContentView(root)
         if (hasMediaPermission()) loadLibrary() else requestMediaPermission()
         showHome()
+        root.post { CrashReportManager.showIfPresent(this) }
     }
 
     private fun hasMediaPermission(): Boolean {
