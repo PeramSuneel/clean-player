@@ -89,6 +89,7 @@ private const val LIVE_SCRUBBING_ENABLED = true
 private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = false
 private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
+private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
@@ -927,7 +928,7 @@ class MainActivity : AppCompatActivity() {
             contentDescription = "Expand playback options"
             setOnClickListener {
                 try {
-                    val expanded = expandedOptions.visibility != View.VISIBLE
+                    if (!PLAYER_TOP_OPTIONS_LAYOUT_ENABLED) return@setOnClickListener\n                    val expanded = expandedOptions.visibility != View.VISIBLE
                     expandedOptions.visibility = if (expanded) View.VISIBLE else View.GONE
                     rotation = if (expanded) 90f else 0f
                     contentDescription = if (expanded) "Collapse playback options" else "Expand playback options"
@@ -959,7 +960,7 @@ class MainActivity : AppCompatActivity() {
         expandedOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(48), dp(48)))
         playerExpandedOptionsRow = expandedOptions
         playerExpandButton = expand
-        top.addView(expandedOptions, LinearLayout.LayoutParams(-1, -2))
+        if (PLAYER_TOP_OPTIONS_LAYOUT_ENABLED) top.addView(expandedOptions, LinearLayout.LayoutParams(-1, -2))
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
@@ -1034,7 +1035,7 @@ class MainActivity : AppCompatActivity() {
                 setMargins(dp(3), 0, dp(3), 0)
             })
         }
-        controls.addView(centerControls, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        try { controls.addView(centerControls, FrameLayout.LayoutParams(-2, -2, if (BOTTOM_CONTROLS_CENTERED_ENABLED) Gravity.CENTER else Gravity.START or Gravity.CENTER_VERTICAL)) } catch (_: Exception) { }
         prev.setOnClickListener { player?.seekToPreviousMediaItem(); scheduleControlsHide() }
         back.setOnClickListener { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() }
         toggle.setOnClickListener {
@@ -1580,7 +1581,16 @@ class MainActivity : AppCompatActivity() {
                 }
                 content.addView(item, LinearLayout.LayoutParams(-1, -2))
             }
-            val popup = PopupWindow(content, dp(260), -2, true).apply {
+            content.measure(
+                View.MeasureSpec.makeMeasureSpec(dp(280), View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            )
+            val popupHeight = minOf(content.measuredHeight, resources.displayMetrics.heightPixels - dp(48)).coerceAtLeast(dp(80))
+            val popupScroll = ScrollView(this).apply {
+                isFillViewport = false
+                addView(content, ViewGroup.LayoutParams(-1, -2))
+            }
+            val popup = PopupWindow(popupScroll, dp(260), popupHeight, true).apply {
                 isOutsideTouchable = true
                 setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
                 elevation = dp(12).toFloat()
@@ -2074,7 +2084,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun playerOverlayButton(icon: Int): ImageButton = ImageButton(this).apply {
         try {
-            if (PLAYER_VECTOR_ICONS_ENABLED) {
+            if (PLAYER_VECTOR_ICONS_ENABLED && PLAYER_ICON_REFRESH_ENABLED) {
                 setImageResource(icon)
                 imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this@MainActivity, R.color.player_primary))
             }
