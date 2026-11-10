@@ -92,6 +92,7 @@ private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
 private const val PLAYER_INLINE_OPTIONS_ENABLED = true
 private const val PLAYER_FULLSCREEN_OVERLAY_ENABLED = true
 private const val BOTTOM_ROTATION_BUTTON_ENABLED = true
+private const val LANDSCAPE_COMPACT_CONTROLS_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
@@ -128,7 +129,7 @@ private class PlayerSeekBar(
     }
     private val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.player_primary)
-        textSize = 12f * density
+        textSize = 12f * resources.displayMetrics.scaledDensity
     }
     private val bubblePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.player_overlay)
@@ -334,6 +335,9 @@ class MainActivity : AppCompatActivity() {
     private var rotationButton: ImageButton? = null
     private var playerExpandedOptionsRow: View? = null
     private var playerOptionsScroll: HorizontalScrollView? = null
+    private var playerToolbar: LinearLayout? = null
+    private var playerControlFrame: FrameLayout? = null
+    private var playerCenterControls: LinearLayout? = null
     private var playerExpandButton: ImageButton? = null
     private var playerOptionsPopup: PopupWindow? = null
     private var playerOptionsOpen = false
@@ -880,6 +884,7 @@ class MainActivity : AppCompatActivity() {
         playerTitleView = now
         toolbar.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
         top.addView(toolbar, LinearLayout.LayoutParams(-1, -2))
+        playerToolbar = toolbar
 
         val quickOptions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -1092,6 +1097,8 @@ class MainActivity : AppCompatActivity() {
                 }
             )
         }
+        playerControlFrame = controls
+        playerCenterControls = centerControls
         try { controls.addView(centerControls, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER)) } catch (_: Exception) { }
         prev.setOnClickListener { player?.seekToPreviousMediaItem(); scheduleControlsHide() }
         back.setOnClickListener { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() }
@@ -1162,6 +1169,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
         ViewCompat.requestApplyInsets(pv)
+        applyPlayerLayoutMetrics(resources.configuration.orientation)
         updatePlayerTitle()
         showPlayerControls()
         scheduleControlsHide()
@@ -1861,6 +1869,98 @@ class MainActivity : AppCompatActivity() {
         onlineHandler.postDelayed(hide, 3_000L)
     }
 
+    private fun applyPlayerLayoutMetrics(orientation: Int) {
+        if (!LANDSCAPE_COMPACT_CONTROLS_ENABLED) return
+        val landscape = orientation == Configuration.ORIENTATION_LANDSCAPE
+        val rowHeight = dp(if (landscape) 40 else 48)
+
+        playerToolbar?.let { toolbar ->
+            toolbar.layoutParams = (toolbar.layoutParams as? LinearLayout.LayoutParams
+                ?: LinearLayout.LayoutParams(-1, -2)).apply { height = if (landscape) rowHeight else -2 }
+            toolbar.getChildAt(0)?.let { close ->
+                close.layoutParams = (close.layoutParams as? LinearLayout.LayoutParams
+                    ?: LinearLayout.LayoutParams(dp(48), dp(48))).apply {
+                    width = dp(48)
+                    height = rowHeight
+                }
+            }
+        }
+
+        playerOptionsScroll?.let { scroll ->
+            scroll.layoutParams = (scroll.layoutParams as? LinearLayout.LayoutParams
+                ?: LinearLayout.LayoutParams(-1, rowHeight)).apply { height = rowHeight }
+            val row = scroll.getChildAt(0) as? LinearLayout
+            row?.let { options ->
+                options.layoutParams = ViewGroup.LayoutParams(-2, rowHeight)
+                for (index in 0 until options.childCount) {
+                    val child = options.getChildAt(index)
+                    val width = if (child === playerExpandedOptionsRow) -2 else dp(48)
+                    child.layoutParams = LinearLayout.LayoutParams(width, rowHeight)
+                    if (child is ImageButton) {
+                        val inset = if (landscape) dp(8) else dp(10)
+                        child.setPadding(inset, inset, inset, inset)
+                    }
+                    if (child === playerExpandedOptionsRow && child is LinearLayout) {
+                        for (extraIndex in 0 until child.childCount) {
+                            val extra = child.getChildAt(extraIndex)
+                            val extraWidth = if (extra is TextView && extra !is ImageButton) dp(54) else dp(48)
+                            extra.layoutParams = LinearLayout.LayoutParams(extraWidth, rowHeight)
+                            if (extra is ImageButton) {
+                                val inset = if (landscape) dp(8) else dp(10)
+                                extra.setPadding(inset, inset, inset, inset)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        playerSeekBar?.let { seek ->
+            seek.layoutParams = (seek.layoutParams as? LinearLayout.LayoutParams
+                ?: LinearLayout.LayoutParams(-1, dp(52))).apply {
+                height = dp(if (landscape) 32 else 52)
+            }
+        }
+
+        playerControlFrame?.let { frame ->
+            frame.layoutParams = (frame.layoutParams as? LinearLayout.LayoutParams
+                ?: LinearLayout.LayoutParams(-1, -2)).apply {
+                height = if (landscape) dp(48) else -2
+            }
+            val vertical = if (landscape) 0 else dp(7)
+            val bottom = if (landscape) 0 else dp(12)
+            frame.setPadding(dp(8), vertical, dp(8), bottom)
+        }
+
+        playerCenterControls?.let { group ->
+            for (index in 0 until group.childCount) {
+                val child = group.getChildAt(index)
+                val isPlayPause = child === playPauseButton
+                val size = if (landscape) 48 else if (isPlayPause) 56 else 48
+                child.layoutParams = (child.layoutParams as? LinearLayout.LayoutParams
+                    ?: LinearLayout.LayoutParams(dp(size), dp(size))).apply {
+                    width = dp(size)
+                    height = dp(size)
+                    val margin = dp(if (landscape) 1 else 3)
+                    setMargins(margin, 0, margin, 0)
+                }
+                if (isPlayPause) {
+                    val inset = dp(if (landscape) 8 else 10)
+                    child.setPadding(inset, inset, inset, inset)
+                }
+            }
+        }
+        rotationButton?.let { rotate ->
+            rotate.layoutParams = (rotate.layoutParams as? FrameLayout.LayoutParams
+                ?: FrameLayout.LayoutParams(dp(48), dp(48), Gravity.START or Gravity.CENTER_VERTICAL)).apply {
+                width = dp(48)
+                height = dp(48)
+            }
+        }
+        playerTopBar?.requestLayout()
+        playerControls?.requestLayout()
+    }
+
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         suppressPlayerAnimations = true
@@ -1872,6 +1972,7 @@ class MainActivity : AppCompatActivity() {
                 ViewCompat.requestApplyInsets(it)
                 it.requestLayout()
             }
+            applyPlayerLayoutMetrics(newConfig.orientation)
             playerSeekBar?.invalidate()
             playerControls?.requestLayout()
         }
