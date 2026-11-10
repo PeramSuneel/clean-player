@@ -72,7 +72,8 @@ private class PlayerSeekBar(
     context: Context,
     private val formatTime: (Long) -> String,
     private val onSeek: (Long) -> Unit,
-    private val onInteraction: (Boolean) -> Unit
+    private val onInteraction: (Boolean) -> Unit,
+    private val onDragPreview: (Long, Float, Boolean) -> Unit
 ) : View(context) {
     private val density = resources.displayMetrics.density
     private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -161,6 +162,7 @@ private class PlayerSeekBar(
         val ratio = ((x - sideInset) / trackWidth()).coerceIn(0f, 1f)
         targetMs = (durationMs * ratio).toLong()
         invalidate()
+        if (dragging) onDragPreview(targetMs, positionFor(targetMs), true)
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -183,6 +185,7 @@ private class PlayerSeekBar(
                     onSeek(targetMs)
                     dragging = false
                     invalidate()
+                    onDragPreview(targetMs, positionFor(targetMs), false)
                     performClick()
                     onInteraction(false)
                 }
@@ -192,6 +195,7 @@ private class PlayerSeekBar(
                 if (dragging) {
                     dragging = false
                     invalidate()
+                    onDragPreview(targetMs, positionFor(targetMs), false)
                     onInteraction(false)
                 }
                 return true
@@ -252,6 +256,7 @@ class MainActivity : AppCompatActivity() {
     private var seekBarUpdateRunnable: Runnable? = null
     private var playerTopBar: LinearLayout? = null
     private var playerSeekIndicator: TextView? = null
+    private var playerSeekBubble: TextView? = null
     private var playerTitleView: TextView? = null
     private var playPauseButton: Button? = null
     private var controlsHideRunnable: Runnable? = null
@@ -637,7 +642,8 @@ class MainActivity : AppCompatActivity() {
                             val duration = player?.duration?.takeIf { it > 0 } ?: Long.MAX_VALUE
                             dragTargetPosition = (dragStartPosition + delta).coerceIn(0L, duration)
                             val seconds = delta / 1000L
-                            playerSeekIndicator?.text = "${formatDuration(dragTargetPosition)}   ${if (seconds >= 0) "+" else ""}${seconds}s"
+                            playerSeekIndicator?.text = formatPlayerTime(dragTargetPosition)
+                            playerSeekIndicator?.textSize = 26f
                             playerSeekIndicator?.visibility = View.VISIBLE
                         } else if (gestureMode == 2) {
                             val fraction = (-dy / pv.height.coerceAtLeast(1).toFloat()).coerceIn(-1f, 1f)
@@ -660,13 +666,14 @@ class MainActivity : AppCompatActivity() {
                                     playerSeekIndicator?.text = "Volume $volume / $maxVolume"
                                 }
                             }
+                            playerSeekIndicator?.textSize = 14f
                             playerSeekIndicator?.visibility = View.VISIBLE
                         }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         if (gestureMode == 1 && event.actionMasked == MotionEvent.ACTION_UP) {
                             player?.seekTo(dragTargetPosition)
-                            showSeekFeedback(playerSeekIndicator?.text?.toString().orEmpty())
+                            showSeekFeedback(formatPlayerTime(dragTargetPosition), 300L)
                         } else if (gestureMode == 2) {
                             hideSeekFeedback()
                         }
@@ -767,7 +774,8 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     scheduleControlsHide()
                 }
-            }
+            },
+            { target, thumbX, active -> updateSeekBubble(target, thumbX, active) }
         )
         playerSeekBar = seekBar
         bottomPanel.addView(seekBar, LinearLayout.LayoutParams(-1, dp(52)))
@@ -815,6 +823,19 @@ class MainActivity : AppCompatActivity() {
         bottomPanel.addView(controls, LinearLayout.LayoutParams(-1, -2))
         playerControls = bottomPanel
         pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+
+        val seekBubble = label("", 13, 0xFFFFFFFF.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            background = GradientDrawable().apply {
+                setColor(0xE6000000.toInt())
+                cornerRadius = dp(8).toFloat()
+            }
+            visibility = View.GONE
+            elevation = dp(8).toFloat()
+        }
+        playerSeekBubble = seekBubble
+        pv.addView(seekBubble, FrameLayout.LayoutParams(-2, dp(30)))
 
         val indicator = label("", 14, 0xFFFFFFFF.toInt(), true).apply {
             gravity = Gravity.CENTER
@@ -1156,15 +1177,58 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSeekFeedback(message: String) {
+    private fun updateSeekBubble(targetMs: Long, thumbX: Float, active: Boolean) {
+        try {
+            val bubble = playerSeekBubble ?: return
+            if (active) {
+                bubble.animate().cancel()
+                bubble.text = formatPlayerTime(targetMs)
+                bubble.alpha = 1f
+                bubble.measure(
+                    View.MeasureSpec.makeMeasureSpec(playerView?.width ?: 0, View.MeasureSpec.AT_MOST),
+                    View.MeasureSpec.makeMeasureSpec(dp(30), View.MeasureSpec.AT_MOST)
+                )
+                val parentWidth = playerView?.width ?: 0
+                val left = (playerSeekBar?.x?.plus(thumbX) ?: thumbX) - bubble.measuredWidth / 2f
+                bubble.x = left.coerceIn(0f, (parentWidth - bubble.measuredWidth).coerceAtLeast(0).toFloat())
+                val seekTop = playerSeekBar?.y ?: 0f
+                bubble.y = (seekTop + dp(26) - dp(56) - dp(30)).coerceAtLeast(dp(4).toFloat())
+                bubble.visibility = View.VISIBLE
+            } else if (bubble.visibility == View.VISIBLE) {
+                bubble.animate().cancel()
+                bubble.animate().alpha(0f).setDuration(300L).withEndAction {
+                    bubble.visibility = View.GONE
+                    bubble.alpha = 1f
+                }.start()
+            }
+        } catch (_: Exception) {
+            // A preview bubble failure must not affect seeking or playback.
+        }
+    }
+
+    private fun showSeekFeedback(message: String, fadeAfterMs: Long = 850L) {
         if (message.isBlank()) return
+        playerSeekIndicator?.animate()?.cancel()
         playerSeekIndicator?.text = message
         playerSeekIndicator?.visibility = View.VISIBLE
-        onlineHandler.postDelayed({ hideSeekFeedback() }, 850L)
+        playerSeekIndicator?.alpha = 1f
+        onlineHandler.postDelayed({
+            try {
+                playerSeekIndicator?.animate()?.alpha(0f)?.setDuration(150L)?.withEndAction {
+                    playerSeekIndicator?.visibility = View.GONE
+                    playerSeekIndicator?.alpha = 1f
+                    playerSeekIndicator?.textSize = 14f
+                }?.start()
+            } catch (_: Exception) {
+                hideSeekFeedback()
+            }
+        }, fadeAfterMs)
     }
 
     private fun hideSeekFeedback() {
         playerSeekIndicator?.visibility = View.GONE
+        playerSeekIndicator?.alpha = 1f
+        playerSeekIndicator?.textSize = 14f
     }
 
     private fun togglePlayerControls() {
