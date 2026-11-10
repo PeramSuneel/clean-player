@@ -71,6 +71,7 @@ private const val SUBTITLE_SIZE_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 private const val PLAYER_TOP_LEFT_ENABLED = true
+private const val AUDIO_TRACK_SESSION_MEMORY_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -284,6 +285,7 @@ class MainActivity : AppCompatActivity() {
     private var initialBrightness = 0.5f
     private var initialVolume = 0
     private var lastAudibleVolume = 0
+    private var preferredAudioLanguage: String? = null
     private var playerMuteButton: ImageButton? = null
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -944,29 +946,46 @@ class MainActivity : AppCompatActivity() {
         val exo = player ?: return
         val options = mutableListOf<Pair<String, (() -> Unit)?>>()
         try {
-            val audioTrackCount = exo.currentTracks.groups
-                .filter { it.type == C.TRACK_TYPE_AUDIO }
-                .sumOf { it.length }
-            exo.currentTracks.groups.forEach { group ->
-                if (group.type == C.TRACK_TYPE_AUDIO) {
-                    for (i in 0 until group.length) {
-                        val format = group.getTrackFormat(i)
-                        val language = format.language?.takeIf { it.isNotBlank() } ?: "Unknown language"
-                        val codec = format.sampleMimeType?.substringAfter('/') ?: format.codecs ?: "Audio"
-                        val selected = group.isTrackSelected(i) || audioTrackCount == 1
-                        val title = "${if (selected) "✓ " else ""}$language · $codec"
-                        options.add(title to {
-                            try {
-                                exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
-                                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
-                                    .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(i)))
-                                    .build()
-                            } catch (_: Exception) { }
-                        })
-                    }
+            val groups = exo.currentTracks.groups.filter { it.type == C.TRACK_TYPE_AUDIO }
+            val count = groups.sumOf { it.length }
+            if (count == 0) options.add("No audio" to null)
+            var ordinal = 0
+            groups.forEach { group ->
+                for (i in 0 until group.length) {
+                    ordinal++
+                    val format = group.getTrackFormat(i)
+                    val languageCode = format.language?.takeIf { it.isNotBlank() }
+                    val language = languageCode?.let {
+                        try { Locale.forLanguageTag(it).getDisplayLanguage(Locale.getDefault()).ifBlank { it } }
+                        catch (_: Exception) { it }
+                    } ?: ("Track " + ordinal)
+                    val details = listOfNotNull(
+                        format.label?.takeIf { it.isNotBlank() },
+                        format.sampleMimeType?.substringAfter('/')?.uppercase(Locale.ROOT),
+                        when (format.channelCount) {
+                            1 -> "Mono"
+                            2 -> "Stereo"
+                            6 -> "5.1"
+                            8 -> "7.1"
+                            else -> if (format.channelCount > 0) format.channelCount.toString() + "ch" else null
+                        }
+                    ).distinct().joinToString(" ")
+                    val selected = group.isTrackSelected(i)
+                    val title = (if (selected) "✓ " else "") + language +
+                        (if (details.isNotBlank()) " - " + details else "")
+                    options.add(title to {
+                        try {
+                            exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                                .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(i)))
+                                .build()
+                            if (AUDIO_TRACK_SESSION_MEMORY_ENABLED) preferredAudioLanguage = languageCode
+                        } catch (_: Exception) {
+                            Toast.makeText(this, "Unable to switch audio track", Toast.LENGTH_SHORT).show()
+                        }
+                    })
                 }
             }
-            if (options.isEmpty()) options.add("No selectable audio tracks" to null)
         } catch (_: Exception) {
             options.clear()
             options.add("Audio tracks unavailable" to null)
