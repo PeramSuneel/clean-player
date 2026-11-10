@@ -84,6 +84,8 @@ private const val REPEAT_ONE_ENABLED = true
 private const val AUDIO_ONLY_ENABLED = true
 private const val LIVE_SCRUBBING_ENABLED = true
 private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = true
+private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
+private const val PLAYER_ICON_REFRESH_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -673,7 +675,7 @@ class MainActivity : AppCompatActivity() {
         val gestureSurface = View(this).apply {
             isClickable = true
             setOnTouchListener { _, event ->
-                gestureDetector.onTouchEvent(event)
+                if (playerOptionsOpen) return@setOnTouchListener true\n                gestureDetector.onTouchEvent(event)
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         dragStartX = event.x
@@ -771,33 +773,24 @@ class MainActivity : AppCompatActivity() {
         }
         playerTitleView = now
         toolbar.addView(now, LinearLayout.LayoutParams(0, -2, 0.5f))
-        val audioTrack = playerOverlayButton(R.drawable.ic_player_audio).apply {
-            contentDescription = "Select audio track"
-            setOnClickListener { showAudioTrackMenu(this) }
-        }
-        toolbar.addView(audioTrack, LinearLayout.LayoutParams(dp(42), dp(44)))
-        val subtitleTrack = playerOverlayButton(R.drawable.ic_player_subtitles).apply {
-            contentDescription = "Select subtitles"
-            setOnClickListener { showSubtitleTrackMenu(this) }
-        }
-        toolbar.addView(subtitleTrack, LinearLayout.LayoutParams(dp(42), dp(44)))
-        if (PLAYER_OPTIONS_ENABLED) {
-            val more = playerOverlayButton(R.drawable.ic_player_more).apply {
-                contentDescription = "More playback options"
-                setOnClickListener {
-                    try { showPlayerOptionsMenu(this) } catch (_: Exception) {
-                        Toast.makeText(this@MainActivity, "Playback options unavailable", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-            toolbar.addView(more, LinearLayout.LayoutParams(dp(42), dp(44)))
-        }
         top.addView(toolbar, LinearLayout.LayoutParams(-1, -2))
 
         val quickOptions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(1), dp(12), dp(7))
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            setPadding(dp(8), dp(1), dp(8), dp(2))
+        }
+        val audioTrack = playerOverlayButton(R.drawable.ic_player_audio).apply {
+            contentDescription = "Select audio track"
+            setOnClickListener { showAudioTrackMenu(this); showPlayerControls() }
+        }
+        val subtitleTrack = playerOverlayButton(R.drawable.ic_player_subtitles).apply {
+            contentDescription = "Select subtitles"
+            setOnClickListener { showSubtitleTrackMenu(this); showPlayerControls() }
+        }
+        val aspect = playerOverlayButton(R.drawable.ic_player_aspect).apply {
+            contentDescription = "Aspect ratio"
+            setOnClickListener { showAspectRatioMenu(this); showPlayerControls() }
         }
         val mute = if (MUTE_BUTTON_ENABLED) {
             val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -827,43 +820,60 @@ class MainActivity : AppCompatActivity() {
             }
         } else null
         playerMuteButton = mute
-        if (mute != null) quickOptions.addView(mute, LinearLayout.LayoutParams(dp(44), dp(42)))
+        val rotate = playerOverlayButton(R.drawable.ic_player_rotate).apply {
+            contentDescription = "Rotate screen"
+            setOnClickListener {
+                try {
+                    rotationManuallySelected = true
+                    applyPlayerOrientation(if (playerOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                    showPlayerControls()
+                    scheduleControlsHide()
+                } catch (_: Exception) { }
+            }
+        }
+        rotationButton = rotate
+        val expand = playerOverlayButton(R.drawable.ic_player_chevron).apply {
+            contentDescription = "Expand playback options"
+            setOnClickListener {
+                try {
+                    val expanded = expandedOptions.visibility != View.VISIBLE
+                    expandedOptions.visibility = if (expanded) View.VISIBLE else View.GONE
+                    rotation = if (expanded) 90f else 0f
+                    contentDescription = if (expanded) "Collapse playback options" else "Expand playback options"
+                    showPlayerControls()
+                    scheduleControlsHide()
+                } catch (_: Exception) { }
+            }
+        }
+        listOf(audioTrack, subtitleTrack, aspect, mute, rotate, expand).forEach { button ->
+            if (button != null) quickOptions.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)))
+        }
+        top.addView(quickOptions, LinearLayout.LayoutParams(-1, -2))
+
+        val expandedOptions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL or Gravity.START
+            setPadding(dp(8), 0, dp(8), dp(6))
+            visibility = View.GONE
+        }
         val speed = label("1X", 14, text, true).apply {
             gravity = Gravity.CENTER
-            setPadding(dp(12), 0, dp(12), 0)
             minWidth = dp(48)
             contentDescription = "Playback speed"
             isClickable = true
             isFocusable = true
-            setBackgroundResource(android.R.drawable.list_selector_background)
+            setPadding(dp(12), 0, dp(12), 0)
             setOnClickListener { showPlaybackSpeedMenu(this) }
         }
         playerSpeedLabel = speed
-        quickOptions.addView(speed, LinearLayout.LayoutParams(dp(54), dp(42)))
-        val rotate = playerOverlayButton(R.drawable.ic_player_rotate).apply {
-            contentDescription = "Rotate screen"
-        }
-        rotationButton = rotate
-        quickOptions.addView(rotate, LinearLayout.LayoutParams(dp(44), dp(42)))
-        if (OPTIONS_ROW_MEDIA_ACTIONS_ENABLED) {
-        val screenshot = playerOverlayButton(android.R.drawable.ic_menu_camera).apply {
-            contentDescription = "Save screenshot"
-            setOnClickListener { capturePlayerScreenshot(); showPlayerControls(); scheduleControlsHide() }
-        }
-        quickOptions.addView(screenshot, LinearLayout.LayoutParams(dp(44), dp(42)))
-        val repeat = playerOverlayButton(R.drawable.ic_player_replay).apply {
-            contentDescription = "Repeat current video"
-            setOnClickListener { toggleRepeatOne(); showPlayerControls(); scheduleControlsHide() }
-        }
-        repeatButton = repeat
-        quickOptions.addView(repeat, LinearLayout.LayoutParams(dp(44), dp(42)))
+        expandedOptions.addView(speed, LinearLayout.LayoutParams(dp(54), dp(48)))
         val audioOnly = playerOverlayButton(R.drawable.ic_player_audio_only).apply {
             contentDescription = "Toggle audio-only mode"
             setOnClickListener { toggleAudioOnly(); showPlayerControls(); scheduleControlsHide() }
         }
-        quickOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(44), dp(42)))
-        }
-        top.addView(quickOptions, LinearLayout.LayoutParams(-1, -2))
+        expandedOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(48), dp(48)))
+        top.addView(expandedOptions, LinearLayout.LayoutParams(-1, -2))
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
@@ -985,7 +995,7 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(pv) { _, insets ->
             val cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
             val gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom
-            top.setPadding(0, cutoutTop, 0, 0)
+            val statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top\n            top.setPadding(0, maxOf(cutoutTop, statusTop), 0, 0)
             toolbar.setPadding(dp(8), dp(6), dp(8), dp(2))
             quickOptions.setPadding(dp(12), dp(1), dp(12), dp(7))
             controls.setPadding(dp(8), dp(7), dp(8), dp(12))
@@ -1421,7 +1431,7 @@ class MainActivity : AppCompatActivity() {
             content.alpha = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0f else 1f
             content.scaleX = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
             content.scaleY = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
-            popup.showAsDropDown(anchor, -dp(210), dp(4), Gravity.END)
+            val popupWidth = minOf(dp(280), resources.displayMetrics.widthPixels - dp(24))\n            popup.width = popupWidth\n            val location = IntArray(2)\n            anchor.getLocationOnScreen(location)\n            val minOffset = dp(12) - location[0]\n            val maxOffset = resources.displayMetrics.widthPixels - dp(12) - popupWidth - location[0]\n            popup.showAsDropDown(anchor, minOf(maxOffset, maxOf(minOffset, 0)), dp(4), Gravity.START)
             if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
                 content.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150L).start()
             }
