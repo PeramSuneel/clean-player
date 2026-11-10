@@ -1891,7 +1891,7 @@ class MainActivity : AppCompatActivity() {
                 ?: LinearLayout.LayoutParams(-1, rowHeight)).apply { height = rowHeight }
             val row = scroll.getChildAt(0) as? LinearLayout
             row?.let { options ->
-                options.layoutParams = ViewGroup.LayoutParams(-2, rowHeight)
+                options.layoutParams = FrameLayout.LayoutParams(-2, rowHeight)
                 for (index in 0 until options.childCount) {
                     val child = options.getChildAt(index)
                     val width = if (child === playerExpandedOptionsRow) -2 else dp(48)
