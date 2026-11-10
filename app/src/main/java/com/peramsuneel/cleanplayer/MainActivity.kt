@@ -23,6 +23,10 @@ import android.view.WindowManager
 import android.view.View
 import android.view.ViewGroup
 import android.graphics.Bitmap
+import android.graphics.Matrix
+import android.graphics.RectF
+import android.view.ScaleGestureDetector
+import android.view.TextureView
 import android.graphics.BitmapFactory
 import android.content.Context
 import android.net.ConnectivityManager
@@ -86,6 +90,7 @@ private const val LIVE_SCRUBBING_ENABLED = true
 private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = false
 private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
+private const val PINCH_ZOOM_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -310,6 +315,14 @@ class MainActivity : AppCompatActivity() {
     private var audioOnlyOverlay: TextView? = null
     private var seekWasPlaying = false
     private var lastLiveSeekAt = 0L
+    private var videoZoomMatrix = Matrix()
+    private var videoZoomScale = 1f
+    private var videoPinching = false
+    private var videoTransformView: TextureView? = null
+    private var zoomLabel: TextView? = null
+    private var zoomLabelHideRunnable: Runnable? = null
+    private var panLastX = 0f
+    private var panLastY = 0f
     private var playerSpeedLabel: TextView? = null
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -632,7 +645,9 @@ class MainActivity : AppCompatActivity() {
         root.setPadding(0, 0, 0, 0)
         root.setBackgroundColor(bg)
 
-        val pv = PlayerView(this).apply {
+        val pv = (if (PINCH_ZOOM_ENABLED) {
+            LayoutInflater.from(this).inflate(R.layout.player_view_texture, root, false) as PlayerView
+        } else PlayerView(this)).apply {
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
             resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
@@ -641,6 +656,10 @@ class MainActivity : AppCompatActivity() {
             keepScreenOn = true
         }
         playerView = pv
+        videoTransformView = if (PINCH_ZOOM_ENABLED) pv.videoSurfaceView as? TextureView else null
+        pv.clipChildren = false
+        pv.clipToPadding = false
+        resetVideoZoom()
         if (SUBTITLE_SIZE_ENABLED) {
             try {
                 val savedSize = getSharedPreferences("clean_player_subtitles", MODE_PRIVATE).getString("text_size", "Medium") ?: "Medium"
@@ -672,14 +691,58 @@ class MainActivity : AppCompatActivity() {
                 return true
             }
         })
+        val scaleDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScaleBegin(detector: ScaleGestureDetector): Boolean {
+                if (!PINCH_ZOOM_ENABLED || playerOptionsOpen) return false
+                videoPinching = true
+                gestureMode = 3
+                return true
+            }
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                if (!PINCH_ZOOM_ENABLED || playerOptionsOpen) return false
+                try {
+                    val texture = videoTransformView ?: return false
+                    val nextScale = (videoZoomScale * detector.scaleFactor).coerceIn(1f, 4f)
+                    val factor = nextScale / videoZoomScale
+                    videoZoomMatrix.postScale(factor, factor, detector.focusX, detector.focusY)
+                    videoZoomScale = nextScale
+                    applyVideoZoomTransform()
+                    showVideoZoomLabel()
+                    return true
+                } catch (_: Exception) { return false }
+            }
+        })
         val gestureSurface = View(this).apply {
             isClickable = true
-            setOnTouchListener { _, event ->
-                if (playerOptionsOpen) return@setOnTouchListener true\n                gestureDetector.onTouchEvent(event)
+            setOnTouchListener { view, event ->
+                try {
+                    if (PINCH_ZOOM_ENABLED) scaleDetector.onTouchEvent(event)
+                } catch (_: Exception) { }
+                if (playerOptionsOpen) return@setOnTouchListener true
+                if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN || event.pointerCount >= 2) {
+                    videoPinching = true
+                    gestureMode = 3
+                    view.parent?.requestDisallowInterceptTouchEvent(true)
+                    return@setOnTouchListener true
+                }
+                if (videoPinching) {
+                    if (event.actionMasked == MotionEvent.ACTION_UP || event.actionMasked == MotionEvent.ACTION_CANCEL) {
+                        videoPinching = false
+                        gestureMode = 0
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
+                        scheduleZoomLabelHide()
+                        showPlayerControls()
+                        scheduleControlsHide()
+                    }
+                    return@setOnTouchListener true
+                }
+                if (!(videoZoomScale > 1f && gestureMode == 4)) gestureDetector.onTouchEvent(event)
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
                         dragStartX = event.x
                         dragStartY = event.y
+                        panLastX = event.x
+                        panLastY = event.y
                         dragStartPosition = player?.currentPosition ?: 0L
                         dragTargetPosition = dragStartPosition
                         gestureMode = 0
@@ -687,6 +750,11 @@ class MainActivity : AppCompatActivity() {
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.x - dragStartX
                         val dy = event.y - dragStartY
+                        if (gestureMode == 0 && videoZoomScale > 1f &&
+                            (kotlin.math.abs(dx) > dp(6) || kotlin.math.abs(dy) > dp(6))) {
+                            gestureMode = 4
+                            view.parent?.requestDisallowInterceptTouchEvent(true)
+                        }
                         if (gestureMode == 0 && (kotlin.math.abs(dx) > dp(12) || kotlin.math.abs(dy) > dp(12))) {
                             gestureMode = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else 2
                             if (gestureMode == 1) {
@@ -698,7 +766,13 @@ class MainActivity : AppCompatActivity() {
                                 initialVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
                             }
                         }
-                        if (gestureMode == 1) {
+                        if (gestureMode == 4) {
+                            videoZoomMatrix.postTranslate(event.x - panLastX, event.y - panLastY)
+                            panLastX = event.x
+                            panLastY = event.y
+                            applyVideoZoomTransform()
+                            showVideoZoomLabel()
+                        } else if (gestureMode == 1) {
                             val delta = (dx / pv.width.coerceAtLeast(1).toFloat() * 60_000L).toLong()
                             val duration = player?.duration?.takeIf { it > 0 } ?: Long.MAX_VALUE
                             dragTargetPosition = (dragStartPosition + delta).coerceIn(0L, duration)
@@ -741,12 +815,15 @@ class MainActivity : AppCompatActivity() {
                             showSeekFeedback(formatPlayerTime(dragTargetPosition), 300L)
                         } else if (gestureMode == 2) {
                             hideSeekFeedback()
+                        } else if (gestureMode == 4) {
+                            scheduleZoomLabelHide()
                         }
                         if (gestureMode != 1) playerSeekIndicator?.textSize = 14f
                         if (gestureMode != 0) {
                             showPlayerControls()
                             scheduleControlsHide()
                         }
+                        view.parent?.requestDisallowInterceptTouchEvent(false)
                         gestureMode = 0
                     }
                 }
@@ -991,6 +1068,20 @@ class MainActivity : AppCompatActivity() {
         }
         playerSeekIndicator = indicator
         pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        val zoomIndicator = label("100%", 12, ContextCompat.getColor(this, R.color.player_primary), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(9), dp(5), dp(9), dp(5))
+            background = GradientDrawable().apply {
+                setColor(0xBF000000.toInt())
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.player_divider))
+            }
+            visibility = View.GONE
+            elevation = dp(8).toFloat()
+        }
+        zoomLabel = zoomIndicator
+        pv.addView(zoomIndicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+
 
         ViewCompat.setOnApplyWindowInsetsListener(pv) { _, insets ->
             val cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
@@ -1259,6 +1350,69 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun applyVideoZoomTransform() {
+        try {
+            val texture = videoTransformView ?: return
+            if (texture.width <= 0 || texture.height <= 0) return
+            if (videoZoomScale <= 1.001f) {
+                videoZoomScale = 1f
+                videoZoomMatrix.reset()
+            } else {
+                val bounds = RectF(0f, 0f, texture.width.toFloat(), texture.height.toFloat())
+                videoZoomMatrix.mapRect(bounds)
+                val dx = when {
+                    bounds.left > 0f -> -bounds.left
+                    bounds.right < texture.width -> texture.width - bounds.right
+                    else -> 0f
+                }
+                val dy = when {
+                    bounds.top > 0f -> -bounds.top
+                    bounds.bottom < texture.height -> texture.height - bounds.bottom
+                    else -> 0f
+                }
+                videoZoomMatrix.postTranslate(dx, dy)
+            }
+            texture.setTransform(videoZoomMatrix)
+            texture.invalidate()
+        } catch (_: Exception) { }
+    }
+
+    private fun showVideoZoomLabel() {
+        try {
+            val view = zoomLabel ?: return
+            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            view.text = "${(videoZoomScale * 100f).toInt()}%"
+            view.visibility = View.VISIBLE
+            view.alpha = 1f
+        } catch (_: Exception) { }
+    }
+
+    private fun scheduleZoomLabelHide() {
+        try {
+            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            val hide = Runnable {
+                try { zoomLabel?.animate()?.alpha(0f)?.setDuration(180L)?.withEndAction { zoomLabel?.visibility = View.GONE }?.start() }
+                catch (_: Exception) { zoomLabel?.visibility = View.GONE }
+            }
+            zoomLabelHideRunnable = hide
+            onlineHandler.postDelayed(hide, 900L)
+        } catch (_: Exception) { }
+    }
+
+    private fun resetVideoZoom() {
+        try {
+            videoZoomScale = 1f
+            videoZoomMatrix.reset()
+            videoPinching = false
+            gestureMode = 0
+            videoTransformView?.setTransform(videoZoomMatrix)
+            zoomLabel?.visibility = View.GONE
+            zoomLabel?.alpha = 1f
+            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            zoomLabelHideRunnable = null
+        } catch (_: Exception) { }
+    }
+
     private fun applySubtitleTextSize(size: String, persist: Boolean = true) {
         if (!SUBTITLE_SIZE_ENABLED) return
         try {
@@ -1340,7 +1494,7 @@ class MainActivity : AppCompatActivity() {
                     } else {
                         playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.setAspectRatio(0f)
                     }
-                    prefs.edit().putString(key, label).apply()
+                    prefs.edit().putString(key, label).apply()\n                    resetVideoZoom()
                 } catch (_: Exception) { }
             }
         }
