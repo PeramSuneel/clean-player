@@ -100,11 +100,11 @@ private class PlayerSeekBar(
         style = android.graphics.Paint.Style.FILL
     }
     private val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt()
+        color = ContextCompat.getColor(context, R.color.player_primary)
         textSize = 12f * density
     }
     private val bubblePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xBF000000.toInt()
+        color = ContextCompat.getColor(context, R.color.player_overlay)
         style = android.graphics.Paint.Style.FILL
     }
     private var durationMs = 0L
@@ -231,6 +231,7 @@ class MainActivity : AppCompatActivity() {
     private var currentFolder: String? = null
 
     private fun applyPalette() {
+        if (!PLAYER_PALETTE_ENABLED) return
         try {
             bg = ContextCompat.getColor(this, R.color.player_background)
             panel = ContextCompat.getColor(this, R.color.player_surface)
@@ -598,14 +599,14 @@ class MainActivity : AppCompatActivity() {
         applyImmersiveMode()
         root.removeAllViews()
         root.setPadding(0, 0, 0, 0)
-        root.setBackgroundColor(0xFF000000.toInt())
+        root.setBackgroundColor(bg)
 
         val pv = PlayerView(this).apply {
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
             resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
             player = this@MainActivity.player
-            setBackgroundColor(0xFF000000.toInt())
+            setBackgroundColor(bg)
             keepScreenOn = true
         }
         playerView = pv
@@ -711,7 +712,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(8))
-            setBackgroundColor(0x66000000)
+            setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.player_overlay))
         }
         val close = playerOverlayButton(R.drawable.ic_player_back)
         top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
@@ -842,11 +843,11 @@ class MainActivity : AppCompatActivity() {
         playerControls = bottomPanel
         pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
 
-        val seekPreview = label("", 13, 0xFFFFFFFF.toInt(), true).apply {
+        val seekPreview = label("", 13, ContextCompat.getColor(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(10), dp(5), dp(10), dp(5))
             background = GradientDrawable().apply {
-                setColor(0xBF000000.toInt())
+                setColor(ContextCompat.getColor(this@MainActivity, R.color.player_overlay))
                 cornerRadius = dp(8).toFloat()
             }
             visibility = View.GONE
@@ -855,7 +856,7 @@ class MainActivity : AppCompatActivity() {
         pv.addView(seekPreview, FrameLayout.LayoutParams(-2, dp(30)))
         seekPreview.tag = "seek-preview"
 
-        val indicator = label("", 14, 0xFFFFFFFF.toInt(), true).apply {
+        val indicator = label("", 14, ContextCompat.getColor(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(16), dp(10), dp(16), dp(10))
             background = GradientDrawable().apply {
@@ -1624,8 +1625,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun playerOverlayButton(icon: Int): ImageButton = ImageButton(this).apply {
         try {
-            setImageResource(icon)
-            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            if (PLAYER_VECTOR_ICONS_ENABLED) {
+                setImageResource(icon)
+                imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this@MainActivity, R.color.player_primary))
+            }
         } catch (_: Exception) { }
         contentDescription = "Player control"
         scaleType = ImageView.ScaleType.CENTER_INSIDE

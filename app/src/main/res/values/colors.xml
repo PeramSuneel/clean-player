@@ -8,4 +8,5 @@
     <color name="player_accent">#2F80ED</color>
     <color name="player_primary">#FFFFFF</color>
     <color name="player_buffered">#B8BCC4</color>
+    <color name="player_overlay">#BF000000</color>
 </resources>
