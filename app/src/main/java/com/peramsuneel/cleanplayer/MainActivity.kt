@@ -717,33 +717,64 @@ class MainActivity : AppCompatActivity() {
         pv.addView(gestureSurface, FrameLayout.LayoutParams(-1, -1))
 
         val top = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(12), dp(8), dp(12), dp(8))
+            orientation = LinearLayout.VERTICAL
             setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.player_overlay))
         }
+        val toolbar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), dp(6), dp(8), dp(2))
+        }
         val close = playerOverlayButton(R.drawable.ic_player_back)
-        top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
+        toolbar.addView(close, LinearLayout.LayoutParams(dp(44), dp(44)))
         close.setOnClickListener { player?.pause(); showHome() }
         val now = label(currentPlayerTitle, 15, text, true).apply {
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
         playerTitleView = now
-        top.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
+        toolbar.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
+        val audioTrack = playerOverlayButton(R.drawable.ic_player_audio).apply {
+            contentDescription = "Select audio track"
+            setOnClickListener { showAudioTrackMenu(this) }
+        }
+        toolbar.addView(audioTrack, LinearLayout.LayoutParams(dp(42), dp(44)))
+        val subtitleTrack = playerOverlayButton(R.drawable.ic_player_subtitles).apply {
+            contentDescription = "Select subtitles"
+            setOnClickListener { showSubtitleTrackMenu(this) }
+        }
+        toolbar.addView(subtitleTrack, LinearLayout.LayoutParams(dp(42), dp(44)))
+        if (PLAYER_OPTIONS_ENABLED) {
+            val more = playerOverlayButton(R.drawable.ic_player_more).apply {
+                contentDescription = "More playback options"
+                setOnClickListener {
+                    try { showPlayerOptionsMenu(this) } catch (_: Exception) {
+                        Toast.makeText(this@MainActivity, "Playback options unavailable", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            toolbar.addView(more, LinearLayout.LayoutParams(dp(42), dp(44)))
+        }
+        top.addView(toolbar, LinearLayout.LayoutParams(-1, -2))
+
+        val quickOptions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(12), dp(1), dp(12), dp(7))
+        }
         val mute = if (MUTE_BUTTON_ENABLED) {
-            val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-            val currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            val audioManager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val currentVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
             if (currentVolume > 0) lastAudibleVolume = currentVolume
             playerOverlayButton(if (currentVolume == 0) R.drawable.ic_player_mute else R.drawable.ic_player_volume).apply {
                 contentDescription = if (currentVolume == 0) "Unmute audio" else "Mute audio"
                 setOnClickListener {
                     try {
                         val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
-                        val now = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                        val current = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
                         val maximum = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
-                        if (now > 0) {
-                            lastAudibleVolume = now
+                        if (current > 0) {
+                            lastAudibleVolume = current
                             manager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
                         } else {
                             val restore = lastAudibleVolume.takeIf { it > 0 } ?: (maximum / 2).coerceAtLeast(1)
@@ -754,32 +785,31 @@ class MainActivity : AppCompatActivity() {
                         contentDescription = if (muted) "Unmute audio" else "Mute audio"
                         showPlayerControls()
                         scheduleControlsHide()
-                    } catch (_: Exception) {
-                        // Keep playback available if the device blocks stream-volume changes.
-                    }
+                    } catch (_: Exception) { }
                 }
             }
         } else null
         playerMuteButton = mute
-        if (mute != null) top.addView(mute, LinearLayout.LayoutParams(dp(44), dp(44)))
+        if (mute != null) quickOptions.addView(mute, LinearLayout.LayoutParams(dp(44), dp(42)))
+        val speed = label("1X", 14, text, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(12), 0, dp(12), 0)
+            minWidth = dp(48)
+            contentDescription = "Playback speed"
+            isClickable = true
+            isFocusable = true
+            setBackgroundResource(android.R.drawable.list_selector_background)
+            setOnClickListener { showPlaybackSpeedMenu(this) }
+        }
+        quickOptions.addView(speed, LinearLayout.LayoutParams(dp(54), dp(42)))
+        val quickSpacer = View(this)
+        quickOptions.addView(quickSpacer, LinearLayout.LayoutParams(0, 1, 1f))
         val rotate = playerOverlayButton(R.drawable.ic_player_rotate).apply {
             contentDescription = "Rotate screen"
         }
         rotationButton = rotate
-        top.addView(rotate, LinearLayout.LayoutParams(dp(44), dp(44)))
-        if (PLAYER_OPTIONS_ENABLED) {
-            val more = playerOverlayButton(R.drawable.ic_player_more).apply {
-                contentDescription = "More playback options"
-                setOnClickListener {
-                    try {
-                        showPlayerOptionsMenu(this)
-                    } catch (_: Exception) {
-                        Toast.makeText(this@MainActivity, "Playback options unavailable", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
-            top.addView(more, LinearLayout.LayoutParams(dp(44), dp(44)))
-        }
+        quickOptions.addView(rotate, LinearLayout.LayoutParams(dp(44), dp(42)))
+        top.addView(quickOptions, LinearLayout.LayoutParams(-1, -2))
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
@@ -810,21 +840,29 @@ class MainActivity : AppCompatActivity() {
         val controls = LinearLayout(this).apply {
             gravity = Gravity.CENTER
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(10), dp(10), dp(10), dp(14))
+            setPadding(dp(8), dp(7), dp(8), dp(12))
         }
         val prev = playerOverlayButton(R.drawable.ic_player_previous)
         val back = playerOverlayButton(R.drawable.ic_player_rewind)
         val toggle = playerOverlayButton(if (player?.isPlaying == true) R.drawable.ic_player_pause else R.drawable.ic_player_play)
         val forward = playerOverlayButton(R.drawable.ic_player_forward)
         val next = playerOverlayButton(R.drawable.ic_player_next)
-
         playPauseButton = toggle
-        val controlButtons = mutableListOf(prev, back, toggle, forward, next)
-        controlButtons.forEachIndexed { i, b ->
-            controls.addView(b, LinearLayout.LayoutParams(0, dp(if (b === toggle) 58 else 48), if (b === toggle) 1.25f else 1f).apply {
-                setMargins(dp(3), 0, dp(3), 0)
+        val centerControls = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+        }
+        listOf(prev, back, toggle, forward, next).forEach { control ->
+            centerControls.addView(control, LinearLayout.LayoutParams(dp(if (control === toggle) 54 else 46), dp(if (control === toggle) 56 else 48)).apply {
+                setMargins(dp(2), 0, dp(2), 0)
             })
         }
+        controls.addView(centerControls, LinearLayout.LayoutParams(0, -2, 1f))
+        val aspect = playerOverlayButton(R.drawable.ic_player_aspect).apply {
+            contentDescription = "Aspect ratio"
+            setOnClickListener { showAspectRatioMenu(this); showPlayerControls() }
+        }
+        controls.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
         prev.setOnClickListener { player?.seekToPreviousMediaItem(); scheduleControlsHide() }
         back.setOnClickListener { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() }
         toggle.setOnClickListener {
@@ -839,14 +877,6 @@ class MainActivity : AppCompatActivity() {
         }
         forward.setOnClickListener { seekBy(10_000L); showSeekFeedback("+10 sec"); scheduleControlsHide() }
         next.setOnClickListener { player?.seekToNextMediaItem(); scheduleControlsHide() }
-        rotate.setOnClickListener {
-            rotationManuallySelected = true
-            val nextOrientation = if (playerOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
-                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-            applyPlayerOrientation(nextOrientation)
-            showPlayerControls()
-            scheduleControlsHide()
-        }
         bottomPanel.addView(controls, LinearLayout.LayoutParams(-1, -2))
         playerControls = bottomPanel
         pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
@@ -879,8 +909,10 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(pv) { _, insets ->
             val cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
             val gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom
-            top.setPadding(dp(12), dp(8) + cutoutTop, dp(12), dp(8))
-            controls.setPadding(dp(10), dp(10), dp(10), dp(14))
+            top.setPadding(0, cutoutTop, 0, 0)
+            toolbar.setPadding(dp(8), dp(6), dp(8), dp(2))
+            quickOptions.setPadding(dp(12), dp(1), dp(12), dp(7))
+            controls.setPadding(dp(8), dp(7), dp(8), dp(12))
             bottomPanel.setPadding(0, 0, 0, gestureBottom)
             insets
         }
@@ -1088,6 +1120,26 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) {
             Toast.makeText(this, "Couldn't activate subtitle; video continues", Toast.LENGTH_SHORT).show()
         }
+    }
+
+    private fun showPlaybackSpeedMenu(anchor: View) {
+        val exo = player ?: return
+        val speeds = listOf(0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
+        val current = exo.playbackParameters.speed
+        val labels = speeds.map { speed ->
+            val name = if (speed == speed.toInt().toFloat()) "${speed.toInt()}X" else "${speed}X"
+            "${if (kotlin.math.abs(current - speed) < 0.01f) "✓ " else ""}$name"
+        }
+        val actions = speeds.map { speed ->
+            {
+                try {
+                    exo.setPlaybackParameters(androidx.media3.common.PlaybackParameters(speed))
+                } catch (_: Exception) {
+                    Toast.makeText(this, "Unable to change playback speed", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+        showPlayerPopup(anchor, labels, actions) { }
     }
 
     private fun showAspectRatioMenu(anchor: View) {
