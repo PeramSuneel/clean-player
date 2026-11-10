@@ -66,6 +66,7 @@ private const val PLAYER_MENU_FIX_ENABLED = true
 private const val SEEK_PREVIEW_ENABLED = true
 private const val PLAYER_VECTOR_ICONS_ENABLED = true
 private const val PLAYER_PALETTE_ENABLED = true
+private const val PLAYER_SMOOTH_UI_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 
@@ -286,6 +287,7 @@ class MainActivity : AppCompatActivity() {
     private var rotationButton: ImageButton? = null
     private var playerOptionsPopup: PopupWindow? = null
     private var playerOptionsOpen = false
+    private var suppressPlayerAnimations = false
     private val subtitleFilePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null && SUBTITLE_FILE_ENABLED) applySubtitleFile(uri)
     }
@@ -1117,6 +1119,7 @@ class MainActivity : AppCompatActivity() {
                     minHeight = dp(48)
                     isClickable = true
                     isFocusable = true
+                    setBackgroundResource(android.R.drawable.list_selector_background)
                     setOnClickListener {
                         val clickedPopup = playerOptionsPopup
                         try {
@@ -1149,7 +1152,13 @@ class MainActivity : AppCompatActivity() {
             }
             playerOptionsPopup = popup
             playerOptionsOpen = true
+            content.alpha = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0f else 1f
+            content.scaleX = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
+            content.scaleY = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
             popup.showAsDropDown(anchor, -dp(210), dp(4), Gravity.END)
+            if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
+                content.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150L).start()
+            }
         } catch (_: Exception) {
             playerOptionsOpen = false
             playerOptionsPopup = null
@@ -1237,16 +1246,48 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun animatePlayerControl(view: View?, visible: Boolean, onHidden: (() -> Unit)? = null) {
+        if (view == null) {
+            onHidden?.invoke()
+            return
+        }
+        try {
+            view.animate().cancel()
+            if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
+                if (visible) {
+                    if (view.visibility != View.VISIBLE) view.alpha = 0f
+                    view.visibility = View.VISIBLE
+                    view.animate().alpha(1f).setDuration(200L).start()
+                } else if (view.visibility == View.VISIBLE) {
+                    view.animate().alpha(0f).setDuration(200L).withEndAction {
+                        view.visibility = View.GONE
+                        view.alpha = 1f
+                        onHidden?.invoke()
+                    }.start()
+                } else {
+                    onHidden?.invoke()
+                }
+            } else {
+                view.alpha = 1f
+                view.visibility = if (visible) View.VISIBLE else View.GONE
+                onHidden?.invoke()
+            }
+        } catch (_: Exception) {
+            view.alpha = 1f
+            view.visibility = if (visible) View.VISIBLE else View.GONE
+            onHidden?.invoke()
+        }
+    }
+
     private fun showPlayerControls() {
-        playerControls?.visibility = View.VISIBLE
-        playerTopBar?.visibility = View.VISIBLE
+        animatePlayerControl(playerControls, true)
+        animatePlayerControl(playerTopBar, true)
         startSeekBarUpdates()
     }
 
     private fun hidePlayerControls() {
-        playerControls?.visibility = View.GONE
-        playerTopBar?.visibility = View.GONE
-        stopSeekBarUpdates()
+        animatePlayerControl(playerControls, false) { stopSeekBarUpdates() }
+        animatePlayerControl(playerTopBar, false)
     }
 
     private fun startSeekBarUpdates() {
@@ -1292,6 +1333,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
+        suppressPlayerAnimations = true
         if (showingPlayer) {
             applyImmersiveMode()
             playerView?.let {
@@ -1301,6 +1343,7 @@ class MainActivity : AppCompatActivity() {
             playerSeekBar?.invalidate()
             playerControls?.requestLayout()
         }
+        playerView?.post { suppressPlayerAnimations = false }
     }
 
     private fun cancelOnlineSearchOnly() {
