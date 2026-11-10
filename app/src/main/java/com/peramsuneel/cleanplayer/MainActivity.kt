@@ -50,6 +50,144 @@ import com.peramsuneel.cleanplayer.online.OnlineSearchResult
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
+private class PlayerSeekBar(
+    context: Context,
+    private val formatTime: (Long) -> String,
+    private val onSeek: (Long) -> Unit,
+    private val onInteraction: (Boolean) -> Unit
+) : View(context) {
+    private val density = resources.displayMetrics.density
+    private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x66FFFFFF
+        strokeWidth = 3f * density
+        strokeCap = android.graphics.Paint.Cap.ROUND
+    }
+    private val bufferedPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0x99FFFFFF.toInt()
+        strokeWidth = 3f * density
+        strokeCap = android.graphics.Paint.Cap.ROUND
+    }
+    private val progressPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        strokeWidth = 3f * density
+        strokeCap = android.graphics.Paint.Cap.ROUND
+    }
+    private val thumbPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        style = android.graphics.Paint.Style.FILL
+    }
+    private val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xFFFFFFFF.toInt()
+        textSize = 12f * density
+    }
+    private val bubblePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+        color = 0xDD000000.toInt()
+        style = android.graphics.Paint.Style.FILL
+    }
+    private var durationMs = 0L
+    private var positionMs = 0L
+    private var bufferedMs = 0L
+    private var dragging = false
+    private var targetMs = 0L
+    private val sideInset get() = 48f * density
+    private val trackY get() = height - 14f * density
+    private fun trackWidth() = (width - sideInset * 2f).coerceAtLeast(1f)
+    private fun fraction(value: Long) = (value.toFloat() / durationMs.coerceAtLeast(1L)).coerceIn(0f, 1f)
+    private fun positionFor(value: Long) = sideInset + trackWidth() * fraction(value)
+
+    init {
+        isClickable = true
+        contentDescription = "Video progress"
+        minimumHeight = (64f * density).toInt()
+    }
+
+    fun update(position: Long, duration: Long, buffered: Long) {
+        durationMs = duration.takeIf { it > 0L } ?: 0L
+        positionMs = position.coerceAtLeast(0L)
+        bufferedMs = buffered.coerceAtLeast(0L)
+        if (!dragging) targetMs = positionMs
+        isEnabled = durationMs > 0L
+        invalidate()
+    }
+
+    override fun onDraw(canvas: android.graphics.Canvas) {
+        super.onDraw(canvas)
+        val left = sideInset
+        val right = width - sideInset
+        val y = trackY
+        textPaint.textAlign = android.graphics.Paint.Align.LEFT
+        canvas.drawText(formatTime(positionMs), 0f, 17f * density, textPaint)
+        if (durationMs > 0L) {
+            textPaint.textAlign = android.graphics.Paint.Align.RIGHT
+            canvas.drawText(formatTime(durationMs), width.toFloat(), 17f * density, textPaint)
+            canvas.drawLine(left, y, right, y, trackPaint)
+            if (bufferedMs > 0L) canvas.drawLine(left, y, positionFor(bufferedMs.coerceAtMost(durationMs)), y, bufferedPaint)
+            val thumbX = positionFor(if (dragging) targetMs else positionMs)
+            canvas.drawLine(left, y, thumbX, y, progressPaint)
+            canvas.drawCircle(thumbX, y, (if (dragging) 7f else 5f) * density, thumbPaint)
+            if (dragging) {
+                val value = formatTime(targetMs)
+                val bubbleWidth = textPaint.measureText(value) + 20f * density
+                val bubbleHeight = 25f * density
+                val bubbleLeft = (thumbX - bubbleWidth / 2f).coerceIn(0f, width - bubbleWidth)
+                val bubbleTop = 22f * density
+                canvas.drawRoundRect(bubbleLeft, bubbleTop, bubbleLeft + bubbleWidth, bubbleTop + bubbleHeight, 8f * density, 8f * density, bubblePaint)
+                textPaint.textAlign = android.graphics.Paint.Align.CENTER
+                canvas.drawText(value, bubbleLeft + bubbleWidth / 2f, bubbleTop + 17f * density, textPaint)
+            }
+        }
+    }
+
+    private fun updateTarget(x: Float) {
+        if (durationMs <= 0L) return
+        val ratio = ((x - sideInset) / trackWidth()).coerceIn(0f, 1f)
+        targetMs = (durationMs * ratio).toLong()
+        invalidate()
+    }
+
+    override fun onTouchEvent(event: MotionEvent): Boolean {
+        if (durationMs <= 0L) return false
+        when (event.actionMasked) {
+            MotionEvent.ACTION_DOWN -> {
+                parent?.requestDisallowInterceptTouchEvent(true)
+                dragging = true
+                updateTarget(event.x)
+                onInteraction(true)
+                return true
+            }
+            MotionEvent.ACTION_MOVE -> {
+                if (dragging) updateTarget(event.x)
+                return dragging
+            }
+            MotionEvent.ACTION_UP -> {
+                if (dragging) {
+                    updateTarget(event.x)
+                    onSeek(targetMs)
+                    dragging = false
+                    invalidate()
+                    performClick()
+                    onInteraction(false)
+                }
+                return true
+            }
+            MotionEvent.ACTION_CANCEL -> {
+                if (dragging) {
+                    dragging = false
+                    invalidate()
+                    onInteraction(false)
+                }
+                return true
+            }
+        }
+        return true
+    }
+
+    override fun performClick(): Boolean {
+        super.performClick()
+        return true
+    }
+}
+
 class MainActivity : AppCompatActivity() {
     private var isDark = true
     private var isGrid = true
@@ -92,6 +230,8 @@ class MainActivity : AppCompatActivity() {
     private var homeContent: LinearLayout? = null
     private var onlineSection: LinearLayout? = null
     private var playerControls: LinearLayout? = null
+    private var playerSeekBar: PlayerSeekBar? = null
+    private var seekBarUpdateRunnable: Runnable? = null
     private var playerTopBar: LinearLayout? = null
     private var playerSeekIndicator: TextView? = null
     private var playerTitleView: TextView? = null
@@ -495,14 +635,33 @@ class MainActivity : AppCompatActivity() {
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
-        val controls = LinearLayout(this).apply {
-            gravity = Gravity.CENTER
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(10), dp(10), dp(10), dp(14))
+        val bottomPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
                 intArrayOf(0x00101820, 0xDD000000.toInt())
             )
+        }
+        val seekBar = PlayerSeekBar(
+            this,
+            { millis -> formatPlayerTime(millis) },
+            { target -> player?.seekTo(target) },
+            { interacting ->
+                if (interacting) {
+                    controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                    showPlayerControls()
+                } else {
+                    scheduleControlsHide()
+                }
+            }
+        )
+        playerSeekBar = seekBar
+        bottomPanel.addView(seekBar, LinearLayout.LayoutParams(-1, dp(64)))
+
+        val controls = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(10), dp(10), dp(10), dp(14))
         }
         val prev = playerOverlayButton("|◀", 17)
         val back = playerOverlayButton("−10", 17)
@@ -524,8 +683,9 @@ class MainActivity : AppCompatActivity() {
         }
         forward.setOnClickListener { seekBy(10_000L); showSeekFeedback("+10 sec"); scheduleControlsHide() }
         next.setOnClickListener { player?.seekToNextMediaItem(); scheduleControlsHide() }
-        playerControls = controls
-        pv.addView(controls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+        bottomPanel.addView(controls, LinearLayout.LayoutParams(-1, -2))
+        playerControls = bottomPanel
+        pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
 
         val indicator = label("", 14, 0xFFFFFFFF.toInt(), true).apply {
             gravity = Gravity.CENTER
@@ -543,7 +703,8 @@ class MainActivity : AppCompatActivity() {
             val cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
             val gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom
             top.setPadding(dp(12), dp(8) + cutoutTop, dp(12), dp(8))
-            controls.setPadding(dp(10), dp(10), dp(10), dp(14) + gestureBottom)
+            controls.setPadding(dp(10), dp(10), dp(10), dp(14))
+            bottomPanel.setPadding(0, 0, 0, gestureBottom)
             insets
         }
         ViewCompat.requestApplyInsets(pv)
@@ -598,8 +759,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun togglePlayerControls() {
         if (playerControls?.visibility == View.VISIBLE) {
-            playerControls?.visibility = View.GONE
-            playerTopBar?.visibility = View.GONE
+            hidePlayerControls()
             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
         } else {
             showPlayerControls()
@@ -610,14 +770,47 @@ class MainActivity : AppCompatActivity() {
     private fun showPlayerControls() {
         playerControls?.visibility = View.VISIBLE
         playerTopBar?.visibility = View.VISIBLE
+        startSeekBarUpdates()
+    }
+
+    private fun hidePlayerControls() {
+        playerControls?.visibility = View.GONE
+        playerTopBar?.visibility = View.GONE
+        stopSeekBarUpdates()
+    }
+
+    private fun startSeekBarUpdates() {
+        stopSeekBarUpdates()
+        val update = object : Runnable {
+            override fun run() {
+                if (!showingPlayer || playerControls?.visibility != View.VISIBLE) {
+                    seekBarUpdateRunnable = null
+                    return
+                }
+                val exo = player
+                val duration = exo?.duration?.takeIf { it > 0L } ?: 0L
+                val uri = exo?.currentMediaItem?.localConfiguration?.uri
+                val isOnline = uri?.scheme.equals("http", true) || uri?.scheme.equals("https", true)
+                playerSeekBar?.update(
+                    exo?.currentPosition ?: 0L,
+                    duration,
+                    if (isOnline) exo?.bufferedPosition ?: 0L else 0L
+                )
+                onlineHandler.postDelayed(this, 250L)
+            }
+        }
+        seekBarUpdateRunnable = update
+        onlineHandler.post(update)
+    }
+
+    private fun stopSeekBarUpdates() {
+        seekBarUpdateRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekBarUpdateRunnable = null
     }
 
     private fun scheduleControlsHide() {
         controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
-        val hide = Runnable {
-            playerControls?.visibility = View.GONE
-            playerTopBar?.visibility = View.GONE
-        }
+        val hide = Runnable { hidePlayerControls() }
         controlsHideRunnable = hide
         onlineHandler.postDelayed(hide, 3_000L)
     }
@@ -894,6 +1087,15 @@ class MainActivity : AppCompatActivity() {
         if (bold) setTypeface(typeface, android.graphics.Typeface.BOLD)
     }
 
+    private fun formatPlayerTime(ms: Long): String {
+        val seconds = ms.coerceAtLeast(0L) / 1000L
+        val hours = seconds / 3600L
+        val minutes = (seconds % 3600L) / 60L
+        val remainder = seconds % 60L
+        return if (hours > 0L) String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, remainder)
+        else String.format(Locale.getDefault(), "%02d:%02d", minutes, remainder)
+    }
+
     private fun formatDuration(ms: Long): String {
         val seconds = ms / 1000
         return String.format(Locale.getDefault(), "%d:%02d", seconds / 60, seconds % 60)
@@ -903,6 +1105,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        stopSeekBarUpdates()
         cancelOnlineWork()
         onlineExecutor.shutdownNow()
         thumbnailExecutor.shutdownNow()
