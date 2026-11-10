@@ -919,9 +919,7 @@ class MainActivity : AppCompatActivity() {
         playerSeekBar = seekBar
         bottomPanel.addView(seekBar, LinearLayout.LayoutParams(-1, dp(52)))
 
-        val controls = LinearLayout(this).apply {
-            gravity = Gravity.CENTER
-            orientation = LinearLayout.HORIZONTAL
+        val controls = FrameLayout(this).apply {
             setPadding(dp(8), dp(7), dp(8), dp(12))
         }
         val prev = playerOverlayButton(R.drawable.ic_player_previous)
@@ -935,16 +933,12 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
         }
         listOf(prev, back, toggle, forward, next).forEach { control ->
-            centerControls.addView(control, LinearLayout.LayoutParams(dp(if (control === toggle) 54 else 46), dp(if (control === toggle) 56 else 48)).apply {
-                setMargins(dp(2), 0, dp(2), 0)
+            val mainButton = control === toggle
+            centerControls.addView(control, LinearLayout.LayoutParams(dp(if (mainButton) 56 else 48), dp(if (mainButton) 56 else 48)).apply {
+                setMargins(dp(3), 0, dp(3), 0)
             })
         }
-        controls.addView(centerControls, LinearLayout.LayoutParams(0, -2, 1f))
-        val aspect = playerOverlayButton(R.drawable.ic_player_aspect).apply {
-            contentDescription = "Aspect ratio"
-            setOnClickListener { showAspectRatioMenu(this); showPlayerControls() }
-        }
-        controls.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
+        controls.addView(centerControls, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
         prev.setOnClickListener { player?.seekToPreviousMediaItem(); scheduleControlsHide() }
         back.setOnClickListener { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() }
         toggle.setOnClickListener {
