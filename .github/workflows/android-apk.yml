@@ -70,4 +70,5 @@ jobs:
           path: |
             app/build/outputs/apk/debug/app-debug.apk
             app/build/outputs/apk/release/app-release-unsigned.apk
+            app/build/outputs/apk/release/app-release-signed.apk
           if-no-files-found: warn
