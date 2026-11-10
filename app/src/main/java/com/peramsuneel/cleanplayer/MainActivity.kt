@@ -144,16 +144,7 @@ private class PlayerSeekBar(
             val thumbX = positionFor(if (dragging) targetMs else positionMs)
             canvas.drawLine(left, y, thumbX, y, progressPaint)
             canvas.drawCircle(thumbX, y, (if (dragging) 7f else 5f) * density, thumbPaint)
-            if (dragging) {
-                val value = formatTime(targetMs)
-                val bubbleWidth = textPaint.measureText(value) + 20f * density
-                val bubbleHeight = 25f * density
-                val bubbleLeft = (thumbX - bubbleWidth / 2f).coerceIn(0f, width - bubbleWidth)
-                val bubbleTop = (height - bubbleHeight) / 2f
-                canvas.drawRoundRect(bubbleLeft, bubbleTop, bubbleLeft + bubbleWidth, bubbleTop + bubbleHeight, 8f * density, 8f * density, bubblePaint)
-                textPaint.textAlign = android.graphics.Paint.Align.CENTER
-                canvas.drawText(value, bubbleLeft + bubbleWidth / 2f, bubbleTop + 17f * density, textPaint)
-            }
+
         }
     }
 
