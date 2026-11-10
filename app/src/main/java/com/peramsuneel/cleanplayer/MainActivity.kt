@@ -90,6 +90,7 @@ private const val LIVE_SCRUBBING_ENABLED = true
 private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = false
 private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
 private const val PLAYER_INLINE_OPTIONS_ENABLED = true
+private const val PLAYER_FULLSCREEN_OVERLAY_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
@@ -852,7 +853,16 @@ class MainActivity : AppCompatActivity() {
 
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(ContextCompat.getColor(this@MainActivity, R.color.player_overlay))
+            clipChildren = false
+            clipToPadding = false
+            background = if (PLAYER_FULLSCREEN_OVERLAY_ENABLED) {
+                GradientDrawable(
+                    GradientDrawable.Orientation.TOP_BOTTOM,
+                    intArrayOf(0xE6000000.toInt(), 0x00000000)
+                )
+            } else {
+                android.graphics.drawable.ColorDrawable(ContextCompat.getColor(this@MainActivity, R.color.player_overlay))
+            }
         }
         val toolbar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -954,6 +964,13 @@ class MainActivity : AppCompatActivity() {
         }
         expandedOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(48), dp(48)))
 
+        val optionsScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipChildren = false
+            clipToPadding = false
+            setPadding(0, 0, 0, 0)
+        }
         val expand = playerOverlayButton(R.drawable.ic_player_chevron).apply {
             contentDescription = "Expand playback options"
             setOnClickListener {
@@ -987,14 +1004,7 @@ class MainActivity : AppCompatActivity() {
             quickOptions.addView(expandedOptions, LinearLayout.LayoutParams(-2, dp(48)))
         }
         quickOptions.addView(expand, LinearLayout.LayoutParams(dp(48), dp(48)))
-        val optionsScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER
-            clipChildren = false
-            clipToPadding = false
-            setPadding(0, 0, 0, 0)
-            addView(quickOptions, ViewGroup.LayoutParams(-2, dp(48)))
-        }
+        optionsScroll.addView(quickOptions, ViewGroup.LayoutParams(-2, dp(48)))
         playerOptionsScroll = optionsScroll
         top.addView(optionsScroll, LinearLayout.LayoutParams(-1, dp(48)))
         playerExpandedOptionsRow = expandedOptions
@@ -1132,14 +1142,14 @@ class MainActivity : AppCompatActivity() {
 
 
         ViewCompat.setOnApplyWindowInsetsListener(pv) { _, insets ->
-            val cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom
-            val statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
-            top.setPadding(0, maxOf(cutoutTop, statusTop), 0, 0)
+            top.setPadding(maxOf(cutout.left, bars.left), maxOf(cutout.top, bars.top), maxOf(cutout.right, bars.right), 0)
             toolbar.setPadding(dp(8), dp(6), dp(8), dp(2))
-            quickOptions.setPadding(dp(12), dp(1), dp(12), dp(7))
+            quickOptions.setPadding(dp(12), 0, dp(12), 0)
             controls.setPadding(dp(8), dp(7), dp(8), dp(12))
-            bottomPanel.setPadding(0, 0, 0, gestureBottom)
+            bottomPanel.setPadding(0, 0, 0, maxOf(gestureBottom, bars.bottom, cutout.bottom))
             insets
         }
         ViewCompat.requestApplyInsets(pv)
