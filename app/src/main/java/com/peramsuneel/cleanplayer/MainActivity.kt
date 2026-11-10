@@ -857,7 +857,7 @@ class MainActivity : AppCompatActivity() {
         }
         repeatButton = repeat
         quickOptions.addView(repeat, LinearLayout.LayoutParams(dp(44), dp(42)))
-        val audioOnly = playerOverlayButton(R.drawable.ic_player_audio).apply {
+        val audioOnly = playerOverlayButton(R.drawable.ic_player_audio_only).apply {
             contentDescription = "Toggle audio-only mode"
             setOnClickListener { toggleAudioOnly(); showPlayerControls(); scheduleControlsHide() }
         }
