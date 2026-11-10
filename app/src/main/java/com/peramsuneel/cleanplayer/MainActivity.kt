@@ -89,6 +89,7 @@ private const val AUDIO_ONLY_ENABLED = true
 private const val LIVE_SCRUBBING_ENABLED = true
 private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = false
 private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
+private const val PLAYER_INLINE_OPTIONS_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
@@ -330,6 +331,7 @@ class MainActivity : AppCompatActivity() {
     private var rotationManuallySelected = false
     private var rotationButton: ImageButton? = null
     private var playerExpandedOptionsRow: View? = null
+    private var playerOptionsScroll: HorizontalScrollView? = null
     private var playerExpandButton: ImageButton? = null
     private var playerOptionsPopup: PopupWindow? = null
     private var playerOptionsOpen = false
@@ -616,6 +618,7 @@ class MainActivity : AppCompatActivity() {
                 playerExpandedOptionsRow?.visibility = View.GONE
                 playerExpandButton?.rotation = 0f
                 playerExpandButton?.contentDescription = "Expand playback options"
+                playerOptionsScroll?.smoothScrollTo(0, 0)
                 resetVideoZoom()
                 applySavedAspectRatio()
                 updatePlayerTitle()
@@ -870,7 +873,9 @@ class MainActivity : AppCompatActivity() {
         val quickOptions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
-            setPadding(dp(8), dp(1), dp(8), dp(2))
+            setPadding(dp(8), 0, dp(8), 0)
+            clipChildren = false
+            clipToPadding = false
         }
         val audioTrack = playerOverlayButton(R.drawable.ic_player_audio).apply {
             contentDescription = "Select audio track"
@@ -925,31 +930,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
         rotationButton = rotate
+
         val expandedOptions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.START
-            setPadding(dp(8), 0, dp(8), dp(6))
             visibility = View.GONE
+            alpha = 1f
         }
-        val expand = playerOverlayButton(R.drawable.ic_player_chevron).apply {
-            contentDescription = "Expand playback options"
-            setOnClickListener {
-                try {
-                    if (!PLAYER_TOP_OPTIONS_LAYOUT_ENABLED) return@setOnClickListener
-                    val expanded = expandedOptions.visibility != View.VISIBLE
-                    expandedOptions.visibility = if (expanded) View.VISIBLE else View.GONE
-                    rotation = if (expanded) 90f else 0f
-                    contentDescription = if (expanded) "Collapse playback options" else "Expand playback options"
-                    showPlayerControls()
-                    scheduleControlsHide()
-                } catch (_: Exception) { }
-            }
-        }
-        listOf(audioTrack, subtitleTrack, aspect, mute, rotate, expand).forEach { button ->
-            if (button != null) quickOptions.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)))
-        }
-        top.addView(quickOptions, LinearLayout.LayoutParams(-1, -2))
-
         val speed = label("1X", 14, text, true).apply {
             gravity = Gravity.CENTER
             minWidth = dp(48)
@@ -966,9 +953,52 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { toggleAudioOnly(); showPlayerControls(); scheduleControlsHide() }
         }
         expandedOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(48), dp(48)))
+
+        val expand = playerOverlayButton(R.drawable.ic_player_chevron).apply {
+            contentDescription = "Expand playback options"
+            setOnClickListener {
+                try {
+                    if (!PLAYER_TOP_OPTIONS_LAYOUT_ENABLED || !PLAYER_INLINE_OPTIONS_ENABLED) return@setOnClickListener
+                    val expanded = expandedOptions.visibility != View.VISIBLE
+                    if (expanded) {
+                        expandedOptions.alpha = 0f
+                        expandedOptions.visibility = View.VISIBLE
+                        if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
+                            expandedOptions.animate().alpha(1f).setDuration(150L).start()
+                        } else expandedOptions.alpha = 1f
+                    } else {
+                        expandedOptions.visibility = View.GONE
+                    }
+                    rotation = if (expanded) 180f else 0f
+                    contentDescription = if (expanded) "Collapse playback options" else "Expand playback options"
+                    optionsScroll.post {
+                        if (expanded) optionsScroll.fullScroll(View.FOCUS_RIGHT)
+                        else optionsScroll.smoothScrollTo(0, 0)
+                    }
+                    showPlayerControls()
+                    scheduleControlsHide()
+                } catch (_: Exception) { }
+            }
+        }
+        listOf(audioTrack, subtitleTrack, aspect, mute).forEach { button ->
+            if (button != null) quickOptions.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)))
+        }
+        if (PLAYER_TOP_OPTIONS_LAYOUT_ENABLED && PLAYER_INLINE_OPTIONS_ENABLED) {
+            quickOptions.addView(expandedOptions, LinearLayout.LayoutParams(-2, dp(48)))
+        }
+        quickOptions.addView(expand, LinearLayout.LayoutParams(dp(48), dp(48)))
+        val optionsScroll = HorizontalScrollView(this).apply {
+            isHorizontalScrollBarEnabled = false
+            overScrollMode = View.OVER_SCROLL_NEVER
+            clipChildren = false
+            clipToPadding = false
+            setPadding(0, 0, 0, 0)
+            addView(quickOptions, ViewGroup.LayoutParams(-2, dp(48)))
+        }
+        playerOptionsScroll = optionsScroll
+        top.addView(optionsScroll, LinearLayout.LayoutParams(-1, dp(48)))
         playerExpandedOptionsRow = expandedOptions
         playerExpandButton = expand
-        if (PLAYER_TOP_OPTIONS_LAYOUT_ENABLED) top.addView(expandedOptions, LinearLayout.LayoutParams(-1, -2))
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
