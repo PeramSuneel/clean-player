@@ -9,6 +9,12 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.view.Gravity
+import android.view.MotionEvent
+import android.view.GestureDetector
+import android.content.res.Configuration
+import android.graphics.drawable.GradientDrawable
+import android.media.AudioManager
+import android.view.WindowManager
 import android.view.View
 import android.view.ViewGroup
 import android.graphics.Bitmap
@@ -26,6 +32,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import android.content.pm.ActivityInfo
 import android.widget.FrameLayout
@@ -84,6 +91,20 @@ class MainActivity : AppCompatActivity() {
     private var onlineResults: List<OnlineSearchResult> = emptyList()
     private var homeContent: LinearLayout? = null
     private var onlineSection: LinearLayout? = null
+    private var playerControls: LinearLayout? = null
+    private var playerTopBar: LinearLayout? = null
+    private var playerSeekIndicator: TextView? = null
+    private var playerTitleView: TextView? = null
+    private var playPauseButton: Button? = null
+    private var controlsHideRunnable: Runnable? = null
+    private var gestureMode = 0
+    private var dragStartX = 0f
+    private var dragStartY = 0f
+    private var dragStartPosition = 0L
+    private var dragTargetPosition = 0L
+    private var initialBrightness = 0.5f
+    private var initialVolume = 0
+    private var currentPlayerTitle = "Now playing"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -330,6 +351,7 @@ class MainActivity : AppCompatActivity() {
         cancelOnlineWork()
         onlineMode = false
         queue.clear(); queue.addAll(items); currentIndex = index
+        currentPlayerTitle = queue.getOrNull(index)?.name ?: "Now playing"
         val exo = ExoPlayer.Builder(this).build()
         player?.release(); player = exo
         exo.setMediaItems(queue.map { MediaItem.fromUri(it.uri) }, index, 0L)
@@ -344,14 +366,16 @@ class MainActivity : AppCompatActivity() {
         showingPlayer = true
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).apply {
-            hide(WindowInsetsCompat.Type.systemBars())
-            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        if (Build.VERSION.SDK_INT >= 28) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+            }
         }
+        applyImmersiveMode()
         root.removeAllViews()
         root.setPadding(0, 0, 0, 0)
+        root.setBackgroundColor(0xFF000000.toInt())
 
-        // Keep the video surface full-screen; controls are transparent overlays inside PlayerView.
         val pv = PlayerView(this).apply {
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
@@ -362,45 +386,217 @@ class MainActivity : AppCompatActivity() {
         playerView = pv
         root.addView(pv, LinearLayout.LayoutParams(-1, -1))
 
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
+                togglePlayerControls()
+                return true
+            }
+
+            override fun onDoubleTap(e: MotionEvent): Boolean {
+                val direction = if (e.x < pv.width / 2f) -10_000L else 10_000L
+                seekBy(direction)
+                showSeekFeedback(if (direction < 0) "−10 sec" else "+10 sec")
+                return true
+            }
+        })
+        val gestureSurface = View(this).apply {
+            isClickable = true
+            setOnTouchListener { _, event ->
+                gestureDetector.onTouchEvent(event)
+                when (event.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        dragStartX = event.x
+                        dragStartY = event.y
+                        dragStartPosition = player?.currentPosition ?: 0L
+                        dragTargetPosition = dragStartPosition
+                        gestureMode = 0
+                    }
+                    MotionEvent.ACTION_MOVE -> {
+                        val dx = event.x - dragStartX
+                        val dy = event.y - dragStartY
+                        if (gestureMode == 0 && (kotlin.math.abs(dx) > dp(12) || kotlin.math.abs(dy) > dp(12))) {
+                            gestureMode = if (kotlin.math.abs(dx) > kotlin.math.abs(dy)) 1 else 2
+                            if (gestureMode == 1) {
+                                dragStartPosition = player?.currentPosition ?: 0L
+                            } else {
+                                val attrs = window.attributes
+                                initialBrightness = if (attrs.screenBrightness in 0.01f..1f) attrs.screenBrightness else 0.5f
+                                val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                                initialVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+                            }
+                        }
+                        if (gestureMode == 1) {
+                            val delta = (dx / pv.width.coerceAtLeast(1).toFloat() * 60_000L).toLong()
+                            val duration = player?.duration?.takeIf { it > 0 } ?: Long.MAX_VALUE
+                            dragTargetPosition = (dragStartPosition + delta).coerceIn(0L, duration)
+                            val seconds = delta / 1000L
+                            playerSeekIndicator?.text = "${formatDuration(dragTargetPosition)}   ${if (seconds >= 0) "+" else ""}${seconds}s"
+                            playerSeekIndicator?.visibility = View.VISIBLE
+                        } else if (gestureMode == 2) {
+                            val fraction = (-dy / pv.height.coerceAtLeast(1).toFloat()).coerceIn(-1f, 1f)
+                            if (dragStartX < pv.width / 2f) {
+                                val brightness = (initialBrightness + fraction).coerceIn(0.05f, 1f)
+                                window.attributes = window.attributes.apply { screenBrightness = brightness }
+                                playerSeekIndicator?.text = "Brightness ${(brightness * 100).toInt()}%"
+                            } else {
+                                val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                                val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                                val volume = (initialVolume + (fraction * maxVolume).toInt()).coerceIn(0, maxVolume)
+                                audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
+                                playerSeekIndicator?.text = "Volume $volume / $maxVolume"
+                            }
+                            playerSeekIndicator?.visibility = View.VISIBLE
+                        }
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        if (gestureMode == 1 && event.actionMasked == MotionEvent.ACTION_UP) {
+                            player?.seekTo(dragTargetPosition)
+                            showSeekFeedback(playerSeekIndicator?.text?.toString().orEmpty())
+                        } else if (gestureMode == 2) {
+                            hideSeekFeedback()
+                        }
+                        if (gestureMode != 0) showPlayerControls()
+                        gestureMode = 0
+                    }
+                }
+                true
+            }
+        }
+        pv.addView(gestureSurface, FrameLayout.LayoutParams(-1, -1))
+
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(8), dp(12), dp(8))
-            setBackgroundColor(0x55000000)
+            setBackgroundColor(0x66000000)
         }
         val close = playerOverlayButton("‹", 26)
         top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
         close.setOnClickListener { player?.pause(); showHome() }
-        val now = label(queue.getOrNull(currentIndex)?.name ?: "Now playing", 15, text, true)
+        val now = label(currentPlayerTitle, 15, text, true).apply {
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        }
+        playerTitleView = now
         top.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
+        playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
         val controls = LinearLayout(this).apply {
             gravity = Gravity.CENTER
             orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(10), dp(10), dp(10), dp(18))
-            setBackgroundColor(0x55000000)
+            setPadding(dp(10), dp(10), dp(10), dp(14))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0x00101820, 0xDD000000.toInt())
+            )
         }
         val prev = playerOverlayButton("|◀", 17)
         val back = playerOverlayButton("−10", 17)
-        val toggle = playerOverlayButton("Ⅱ", 24)
+        val toggle = playerOverlayButton(if (player?.isPlaying == true) "Ⅱ" else "▶", 24)
         val forward = playerOverlayButton("+10", 17)
         val next = playerOverlayButton("▶|", 17)
+        playPauseButton = toggle
         listOf(prev, back, toggle, forward, next).forEachIndexed { i, b ->
             controls.addView(b, LinearLayout.LayoutParams(0, dp(if (i == 2) 58 else 48), if (i == 2) 1.25f else 1f).apply {
                 setMargins(dp(3), 0, dp(3), 0)
             })
         }
-        prev.setOnClickListener { player?.seekToPreviousMediaItem() }
-        back.setOnClickListener { player?.let { it.seekTo((it.currentPosition - 10_000).coerceAtLeast(0)) } }
+        prev.setOnClickListener { player?.seekToPreviousMediaItem(); scheduleControlsHide() }
+        back.setOnClickListener { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() }
         toggle.setOnClickListener {
             player?.let { if (it.isPlaying) it.pause() else it.play() }
-            toggle.text = if (player?.isPlaying == true) "Ⅱ" else "▶"
+            updatePlayerTitle()
+            scheduleControlsHide()
         }
-        forward.setOnClickListener { player?.let { it.seekTo((it.currentPosition + 10_000).coerceAtMost(it.duration.coerceAtLeast(0))) } }
-        next.setOnClickListener { player?.seekToNextMediaItem() }
+        forward.setOnClickListener { seekBy(10_000L); showSeekFeedback("+10 sec"); scheduleControlsHide() }
+        next.setOnClickListener { player?.seekToNextMediaItem(); scheduleControlsHide() }
+        playerControls = controls
         pv.addView(controls, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+
+        val indicator = label("", 14, 0xFFFFFFFF.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            background = GradientDrawable().apply {
+                setColor(0xB8000000.toInt())
+                cornerRadius = dp(24).toFloat()
+            }
+            visibility = View.GONE
+        }
+        playerSeekIndicator = indicator
+        pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+
+        ViewCompat.setOnApplyWindowInsetsListener(pv) { _, insets ->
+            val cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
+            val gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom
+            top.setPadding(dp(12), dp(8) + cutoutTop, dp(12), dp(8))
+            controls.setPadding(dp(10), dp(10), dp(10), dp(14) + gestureBottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(pv)
         updatePlayerTitle()
+        showPlayerControls()
+        scheduleControlsHide()
+    }
+
+    private fun applyImmersiveMode() {
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            hide(WindowInsetsCompat.Type.systemBars())
+            systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+        }
+    }
+
+    private fun seekBy(deltaMs: Long) {
+        player?.let { exo ->
+            val duration = exo.duration.takeIf { it > 0 } ?: Long.MAX_VALUE
+            exo.seekTo((exo.currentPosition + deltaMs).coerceIn(0L, duration))
+        }
+    }
+
+    private fun showSeekFeedback(message: String) {
+        if (message.isBlank()) return
+        playerSeekIndicator?.text = message
+        playerSeekIndicator?.visibility = View.VISIBLE
+        onlineHandler.postDelayed({ hideSeekFeedback() }, 850L)
+    }
+
+    private fun hideSeekFeedback() {
+        playerSeekIndicator?.visibility = View.GONE
+    }
+
+    private fun togglePlayerControls() {
+        if (playerControls?.visibility == View.VISIBLE) {
+            playerControls?.visibility = View.GONE
+            playerTopBar?.visibility = View.GONE
+            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        } else {
+            showPlayerControls()
+            scheduleControlsHide()
+        }
+    }
+
+    private fun showPlayerControls() {
+        playerControls?.visibility = View.VISIBLE
+        playerTopBar?.visibility = View.VISIBLE
+    }
+
+    private fun scheduleControlsHide() {
+        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        val hide = Runnable {
+            playerControls?.visibility = View.GONE
+            playerTopBar?.visibility = View.GONE
+        }
+        controlsHideRunnable = hide
+        onlineHandler.postDelayed(hide, 3_000L)
+    }
+
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+        if (showingPlayer) {
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+            applyImmersiveMode()
+            playerView?.let { ViewCompat.requestApplyInsets(it) }
+        }
     }
 
     private fun cancelOnlineSearchOnly() {
@@ -622,6 +818,7 @@ class MainActivity : AppCompatActivity() {
     private fun playExternalUrl(url: String, title: String) {
         cancelOnlineWork()
         onlineMode = false
+        currentPlayerTitle = title
         queue.clear()
         currentIndex = 0
         val exo = ExoPlayer.Builder(this).build()
@@ -638,7 +835,7 @@ class MainActivity : AppCompatActivity() {
         textSize = size.toFloat()
         isAllCaps = false
         setTextColor(0xFFFFFFFF.toInt())
-        setBackgroundColor(0x33000000)
+        setBackgroundColor(0x00000000)
         minHeight = 0
         minimumHeight = 0
         minWidth = 0
@@ -648,7 +845,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updatePlayerTitle() {
-        // Keep the playback screen title concise; the playlist remains available via Previous/Next.
+        playerTitleView?.text = currentPlayerTitle
+        playPauseButton?.text = if (player?.isPlaying == true) "Ⅱ" else "▶"
     }
 
     private fun button(caption: String, primary: Boolean): Button = Button(this).apply {
@@ -672,6 +870,7 @@ class MainActivity : AppCompatActivity() {
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
+        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
         cancelOnlineWork()
         onlineExecutor.shutdownNow()
         thumbnailExecutor.shutdownNow()
