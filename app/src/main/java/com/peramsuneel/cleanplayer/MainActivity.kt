@@ -725,6 +725,7 @@ class MainActivity : AppCompatActivity() {
             isClickable = true
             setOnTouchListener { view, event ->
                 try {
+                try {
                     if (PINCH_ZOOM_ENABLED) scaleDetector.onTouchEvent(event)
                 } catch (_: Exception) { }
                 if (playerOptionsOpen) return@setOnTouchListener true
@@ -837,6 +838,11 @@ class MainActivity : AppCompatActivity() {
                     }
                 }
                 true
+                } catch (_: Exception) {
+                    gestureMode = 0
+                    videoPinching = false
+                    true
+                }
             }
         }
         pv.addView(gestureSurface, FrameLayout.LayoutParams(-1, -1))
@@ -1810,6 +1816,8 @@ class MainActivity : AppCompatActivity() {
         super.onConfigurationChanged(newConfig)
         suppressPlayerAnimations = true
         if (showingPlayer) {
+            resetVideoZoom()
+            applySavedAspectRatio()
             applyImmersiveMode()
             playerView?.let {
                 ViewCompat.requestApplyInsets(it)
