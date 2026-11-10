@@ -62,6 +62,7 @@ private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 private const val MUTE_BUTTON_ENABLED = true
 private const val REPLAY_AT_END_ENABLED = true
 private const val PLAYER_OPTIONS_ENABLED = true
+private const val PLAYER_MENU_FIX_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 
@@ -934,9 +935,6 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Subtitle file loading is unavailable", Toast.LENGTH_SHORT).show()
             }
         })
-        options.add("Search online" to {
-            Toast.makeText(this, "Online subtitle search is coming in a later stage", Toast.LENGTH_SHORT).show()
-        })
         showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
     }
 
@@ -1045,7 +1043,10 @@ class MainActivity : AppCompatActivity() {
         onSelect: (String) -> Unit
     ) {
         try {
-            playerOptionsPopup?.dismiss()
+            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            controlsHideRunnable = null
+            val previousPopup = playerOptionsPopup
+            if (previousPopup?.isShowing == true) previousPopup.dismiss()
             val content = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(8), dp(6), dp(8), dp(6))
@@ -1062,16 +1063,25 @@ class MainActivity : AppCompatActivity() {
                     setTextColor(Color.WHITE)
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(14), dp(10), dp(18), dp(10))
-                    minHeight = dp(44)
+                    minHeight = dp(48)
                     isClickable = true
+                    isFocusable = true
                     setOnClickListener {
+                        val clickedPopup = playerOptionsPopup
                         try {
-                            actions?.getOrNull(index)?.invoke()
-                            onSelect(labelText)
+                            if (PLAYER_MENU_FIX_ENABLED) {
+                                try { actions?.getOrNull(index)?.invoke() } catch (_: Exception) {
+                                    Toast.makeText(this@MainActivity, "Unable to apply this option", Toast.LENGTH_SHORT).show()
+                                }
+                                onSelect(labelText)
+                            } else {
+                                actions?.getOrNull(index)?.invoke()
+                                onSelect(labelText)
+                            }
                         } catch (_: Exception) {
                             Toast.makeText(this@MainActivity, "Unable to apply this option", Toast.LENGTH_SHORT).show()
                         }
-                        playerOptionsPopup?.dismiss()
+                        if (playerOptionsPopup === clickedPopup) clickedPopup?.dismiss()
                     }
                 }
                 content.addView(item, LinearLayout.LayoutParams(-1, -2))
@@ -1089,7 +1099,6 @@ class MainActivity : AppCompatActivity() {
             playerOptionsPopup = popup
             playerOptionsOpen = true
             popup.showAsDropDown(anchor, -dp(210), dp(4), Gravity.END)
-            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
         } catch (_: Exception) {
             playerOptionsOpen = false
             playerOptionsPopup = null
