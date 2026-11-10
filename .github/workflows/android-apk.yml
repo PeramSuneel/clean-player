@@ -26,9 +26,14 @@ jobs:
           gradle-version: '8.9'
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
-      - name: Upload APK
+      - name: Build release APK
+        run: gradle --no-daemon :app:assembleRelease
+      - name: Upload debug and release APKs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: clean-player-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
+          name: clean-player-apks
+          path: |
+            app/build/outputs/apk/debug/app-debug.apk
+            app/build/outputs/apk/release/app-release-unsigned.apk
+          if-no-files-found: warn
