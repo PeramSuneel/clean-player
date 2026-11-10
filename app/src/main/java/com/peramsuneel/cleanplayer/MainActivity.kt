@@ -29,6 +29,7 @@ import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.util.Size
 import android.widget.ImageView
 import android.widget.*
@@ -51,6 +52,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
+import androidx.media3.common.SeekParameters
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import java.util.Locale
@@ -80,6 +82,7 @@ private const val SPEED_LABEL_LIVE_ENABLED = true
 private const val SCREENSHOT_ENABLED = true
 private const val REPEAT_ONE_ENABLED = true
 private const val AUDIO_ONLY_ENABLED = true
+private const val LIVE_SCRUBBING_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -88,7 +91,8 @@ private class PlayerSeekBar(
     private val formatTime: (Long) -> String,
     private val onSeek: (Long) -> Unit,
     private val onInteraction: (Boolean) -> Unit,
-    private val onPreview: (Long, Float, Boolean) -> Unit
+    private val onPreview: (Long, Float, Boolean) -> Unit,
+    private val onLiveSeek: (Long) -> Unit
 ) : View(context) {
     private val density = resources.displayMetrics.density
     private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -180,6 +184,9 @@ private class PlayerSeekBar(
         if (SEEK_PREVIEW_ENABLED) {
             try { onPreview(targetMs, positionFor(targetMs), dragging) } catch (_: Exception) { }
         }
+        if (LIVE_SCRUBBING_ENABLED && dragging) {
+            try { onLiveSeek(targetMs) } catch (_: Exception) { }
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -188,8 +195,8 @@ private class PlayerSeekBar(
             MotionEvent.ACTION_DOWN -> {
                 parent?.requestDisallowInterceptTouchEvent(true)
                 dragging = true
-                updateTarget(event.x)
                 onInteraction(true)
+                updateTarget(event.x)
                 return true
             }
             MotionEvent.ACTION_MOVE -> {
@@ -298,6 +305,8 @@ class MainActivity : AppCompatActivity() {
     private var repeatButton: ImageButton? = null
     private var audioOnlyEnabled = false
     private var audioOnlyOverlay: TextView? = null
+    private var seekWasPlaying = false
+    private var lastLiveSeekAt = 0L
     private var playerSpeedLabel: TextView? = null
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -866,15 +875,44 @@ class MainActivity : AppCompatActivity() {
             this,
             { millis -> formatPlayerTime(millis) },
             { target -> player?.seekTo(target) },
-            { interacting ->
-                if (interacting) {
-                    controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
-                    showPlayerControls()
-                } else {
-                    scheduleControlsHide()
-                }
+            { target ->
+                try {
+                    val exo = player ?: return@PlayerSeekBar
+                    exo.seekParameters = SeekParameters.EXACT
+                    exo.seekTo(target)
+                } catch (_: Exception) { }
             },
-            { targetMs, thumbX, active -> updateSeekPreview(targetMs, thumbX, active) }
+            { interacting ->
+                try {
+                    val exo = player
+                    if (interacting) {
+                        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                        seekWasPlaying = exo?.playWhenReady == true
+                        exo?.pause()
+                        if (LIVE_SCRUBBING_ENABLED) exo?.seekParameters = SeekParameters.CLOSEST_SYNC
+                        showPlayerControls()
+                    } else {
+                        if (LIVE_SCRUBBING_ENABLED) exo?.seekParameters = SeekParameters.EXACT
+                        if (seekWasPlaying) exo?.play()
+                        seekWasPlaying = false
+                        scheduleControlsHide()
+                    }
+                } catch (_: Exception) { }
+            },
+            { targetMs, thumbX, active -> updateSeekPreview(targetMs, thumbX, active) },
+            { target ->
+                try {
+                    val exo = player ?: return@PlayerSeekBar
+                    val uri = exo.currentMediaItem?.localConfiguration?.uri
+                    val online = uri?.scheme.equals("http", true) || uri?.scheme.equals("https", true)
+                    val now = SystemClock.elapsedRealtime()
+                    if (!online && now - lastLiveSeekAt >= 200L) {
+                        lastLiveSeekAt = now
+                        exo.seekParameters = SeekParameters.CLOSEST_SYNC
+                        exo.seekTo(target)
+                    }
+                } catch (_: Exception) { }
+            }
         )
         playerSeekBar = seekBar
         bottomPanel.addView(seekBar, LinearLayout.LayoutParams(-1, dp(52)))
