@@ -52,7 +52,7 @@ import androidx.media3.common.Tracks
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
-import androidx.media3.common.SeekParameters
+import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import java.util.Locale
@@ -874,11 +874,10 @@ class MainActivity : AppCompatActivity() {
         val seekBar = PlayerSeekBar(
             this,
             { millis -> formatPlayerTime(millis) },
-            { target -> player?.seekTo(target) },
             { target ->
                 try {
                     val exo = player ?: return@PlayerSeekBar
-                    exo.seekParameters = SeekParameters.EXACT
+                    exo.setSeekParameters(SeekParameters.EXACT)
                     exo.seekTo(target)
                 } catch (_: Exception) { }
             },
@@ -889,10 +888,10 @@ class MainActivity : AppCompatActivity() {
                         controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
                         seekWasPlaying = exo?.playWhenReady == true
                         exo?.pause()
-                        if (LIVE_SCRUBBING_ENABLED) exo?.seekParameters = SeekParameters.CLOSEST_SYNC
+                        if (LIVE_SCRUBBING_ENABLED) exo?.setSeekParameters(SeekParameters.CLOSEST_SYNC)
                         showPlayerControls()
                     } else {
-                        if (LIVE_SCRUBBING_ENABLED) exo?.seekParameters = SeekParameters.EXACT
+                        if (LIVE_SCRUBBING_ENABLED) exo?.setSeekParameters(SeekParameters.EXACT)
                         if (seekWasPlaying) exo?.play()
                         seekWasPlaying = false
                         scheduleControlsHide()
@@ -908,7 +907,7 @@ class MainActivity : AppCompatActivity() {
                     val now = SystemClock.elapsedRealtime()
                     if (!online && now - lastLiveSeekAt >= 200L) {
                         lastLiveSeekAt = now
-                        exo.seekParameters = SeekParameters.CLOSEST_SYNC
+                        exo.setSeekParameters(SeekParameters.CLOSEST_SYNC)
                         exo.seekTo(target)
                     }
                 } catch (_: Exception) { }
