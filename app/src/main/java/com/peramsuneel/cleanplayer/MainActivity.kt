@@ -50,6 +50,7 @@ import com.peramsuneel.cleanplayer.online.OnlineSearchResult
 
 private const val HOME_BRAND_LOGO_ENABLED = true
 private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
+private const val MUTE_BUTTON_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -247,6 +248,8 @@ class MainActivity : AppCompatActivity() {
     private var dragTargetPosition = 0L
     private var initialBrightness = 0.5f
     private var initialVolume = 0
+    private var lastAudibleVolume = 0
+    private var playerMuteButton: Button? = null
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     private var rotationManuallySelected = false
@@ -616,6 +619,9 @@ class MainActivity : AppCompatActivity() {
                                 val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                                 val volume = (initialVolume + (fraction * maxVolume).toInt()).coerceIn(0, maxVolume)
                                 audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
+                                if (volume > 0) lastAudibleVolume = volume
+                                playerMuteButton?.text = if (volume == 0) "×" else "🔊"
+                                playerMuteButton?.contentDescription = if (volume == 0) "Unmute audio" else "Mute audio"
                                 if (VOLUME_PERCENT_INDICATOR_ENABLED) {
                                     val volumePercent = if (maxVolume > 0) (volume * 100f / maxVolume).toInt() else 0
                                     playerSeekIndicator?.text = "Volume $volumePercent%"
@@ -696,13 +702,42 @@ class MainActivity : AppCompatActivity() {
         val toggle = playerOverlayButton(if (player?.isPlaying == true) "Ⅱ" else "▶", 24)
         val forward = playerOverlayButton("+10", 17)
         val next = playerOverlayButton("▶|", 17)
+        val mute = if (MUTE_BUTTON_ENABLED) {
+            val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+            val currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
+            if (currentVolume > 0) lastAudibleVolume = currentVolume
+            playerOverlayButton(if (currentVolume == 0) "×" else "🔊", 17).apply {
+                contentDescription = if (currentVolume == 0) "Unmute audio" else "Mute audio"
+                setOnClickListener {
+                    val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val now = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val maximum = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    if (now > 0) {
+                        lastAudibleVolume = now
+                        manager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+                    } else {
+                        val restore = lastAudibleVolume.takeIf { it > 0 } ?: (maximum / 2).coerceAtLeast(1)
+                        manager.setStreamVolume(AudioManager.STREAM_MUSIC, restore.coerceAtMost(maximum), 0)
+                    }
+                    val muted = manager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0
+                    text = if (muted) "×" else "🔊"
+                    contentDescription = if (muted) "Unmute audio" else "Mute audio"
+                    showPlayerControls()
+                    scheduleControlsHide()
+                }
+            }
+        } else null
+        playerMuteButton = mute
         val rotate = playerOverlayButton("⟳", 22).apply {
             contentDescription = "Rotate screen"
         }
         rotationButton = rotate
         playPauseButton = toggle
-        listOf(prev, back, toggle, forward, next, rotate).forEachIndexed { i, b ->
-            controls.addView(b, LinearLayout.LayoutParams(0, dp(if (i == 2) 58 else 48), if (i == 2) 1.25f else 1f).apply {
+        val controlButtons = mutableListOf(prev, back, toggle, forward, next)
+        if (mute != null) controlButtons.add(mute)
+        controlButtons.add(rotate)
+        controlButtons.forEachIndexed { i, b ->
+            controls.addView(b, LinearLayout.LayoutParams(0, dp(if (b === toggle) 58 else 48), if (b === toggle) 1.25f else 1f).apply {
                 setMargins(dp(3), 0, dp(3), 0)
             })
         }
