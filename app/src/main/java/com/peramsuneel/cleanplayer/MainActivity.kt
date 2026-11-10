@@ -271,6 +271,7 @@ class MainActivity : AppCompatActivity() {
     private var seekBarUpdateRunnable: Runnable? = null
     private var playerTopBar: LinearLayout? = null
     private var playerSeekIndicator: TextView? = null
+    private var seekPreviewHideRunnable: Runnable? = null
     private var playerTitleView: TextView? = null
     private var playPauseButton: ImageButton? = null
     private var controlsHideRunnable: Runnable? = null
@@ -1245,6 +1246,8 @@ class MainActivity : AppCompatActivity() {
             val preview = (0 until pv.childCount).mapNotNull { pv.getChildAt(it) as? TextView }
                 .firstOrNull { it.tag == "seek-preview" } ?: return
             if (active) {
+                seekPreviewHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                seekPreviewHideRunnable = null
                 preview.animate().cancel()
                 preview.text = formatPlayerTime(targetMs)
                 preview.alpha = 1f
@@ -1256,14 +1259,25 @@ class MainActivity : AppCompatActivity() {
                 val x = seek.x + thumbX - preview.measuredWidth / 2f
                 preview.x = x.coerceIn(0f, (pv.width - preview.measuredWidth).coerceAtLeast(0).toFloat())
                 val seekTop = (playerControls?.y ?: 0f) + seek.y
-                preview.y = (seekTop - dp(56) - dp(30)).coerceAtLeast(dp(4).toFloat())
+                preview.y = (seekTop - dp(45)).coerceAtLeast(dp(4).toFloat())
                 preview.visibility = View.VISIBLE
             } else if (preview.visibility == View.VISIBLE) {
-                preview.animate().cancel()
-                preview.animate().alpha(0f).setDuration(300L).withEndAction {
-                    preview.visibility = View.GONE
-                    preview.alpha = 1f
-                }.start()
+                seekPreviewHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                val hide = Runnable {
+                    try {
+                        preview.animate().cancel()
+                        preview.animate().alpha(0f).setDuration(150L).withEndAction {
+                            preview.visibility = View.GONE
+                            preview.alpha = 1f
+                        }.start()
+                    } catch (_: Exception) {
+                        preview.visibility = View.GONE
+                        preview.alpha = 1f
+                    }
+                    seekPreviewHideRunnable = null
+                }
+                seekPreviewHideRunnable = hide
+                onlineHandler.postDelayed(hide, 300L)
             }
         } catch (_: Exception) {
             // Preview rendering must never affect seeking or playback.
@@ -1279,6 +1293,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun hideSeekFeedback() {
         playerSeekIndicator?.visibility = View.GONE
+        playerSeekIndicator?.textSize = 14f
     }
 
     private fun togglePlayerControls() {
