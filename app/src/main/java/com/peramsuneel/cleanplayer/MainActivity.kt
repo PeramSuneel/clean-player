@@ -287,6 +287,7 @@ class MainActivity : AppCompatActivity() {
     private var rotationButton: ImageButton? = null
     private var playerOptionsPopup: PopupWindow? = null
     private var playerOptionsOpen = false
+    private var replacingPlayerPopup = false
     private var suppressPlayerAnimations = false
     private val subtitleFilePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null && SUBTITLE_FILE_ENABLED) applySubtitleFile(uri)
@@ -903,13 +904,16 @@ class MainActivity : AppCompatActivity() {
         val exo = player ?: return
         val options = mutableListOf<Pair<String, (() -> Unit)?>>()
         try {
+            val audioTrackCount = exo.currentTracks.groups
+                .filter { it.type == C.TRACK_TYPE_AUDIO }
+                .sumOf { it.length }
             exo.currentTracks.groups.forEach { group ->
                 if (group.type == C.TRACK_TYPE_AUDIO) {
                     for (i in 0 until group.length) {
                         val format = group.getTrackFormat(i)
                         val language = format.language?.takeIf { it.isNotBlank() } ?: "Unknown language"
                         val codec = format.sampleMimeType?.substringAfter('/') ?: format.codecs ?: "Audio"
-                        val selected = group.isTrackSelected(i)
+                        val selected = group.isTrackSelected(i) || audioTrackCount == 1
                         val title = "${if (selected) "✓ " else ""}$language · $codec"
                         options.add(title to {
                             try {
@@ -1085,7 +1089,9 @@ class MainActivity : AppCompatActivity() {
             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
             controlsHideRunnable = null
             val previousPopup = playerOptionsPopup
+            replacingPlayerPopup = true
             if (previousPopup?.isShowing == true) previousPopup.dismiss()
+            replacingPlayerPopup = false
             val content = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(8), dp(6), dp(8), dp(6))
@@ -1145,9 +1151,11 @@ class MainActivity : AppCompatActivity() {
                 setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
                 elevation = dp(12).toFloat()
                 setOnDismissListener {
-                    playerOptionsOpen = false
-                    playerOptionsPopup = null
-                    scheduleControlsHide()
+                    if (!replacingPlayerPopup) {
+                        playerOptionsOpen = false
+                        playerOptionsPopup = null
+                        scheduleControlsHide()
+                    }
                 }
             }
             playerOptionsPopup = popup
