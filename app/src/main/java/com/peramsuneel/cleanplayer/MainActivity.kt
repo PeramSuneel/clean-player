@@ -190,13 +190,15 @@ class MainActivity : AppCompatActivity() {
         showingPlayer = false
         currentFolder = null
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        WindowCompat.setDecorFitsSystemWindows(window, true)
+        WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
         window.statusBarColor = bg
         window.navigationBarColor = bg
         root.removeAllViews()
+        root.setPadding(0, 0, 0, 0)
         root.setBackgroundColor(bg)
         root.orientation = LinearLayout.VERTICAL
+        applyScreenInsets(root)
         val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(14), dp(18), dp(8)) }
         val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         toolbar.addView(label("Clean Player", 24, text, true), LinearLayout.LayoutParams(0, -2, 1f))
@@ -548,6 +550,25 @@ class MainActivity : AppCompatActivity() {
         updatePlayerTitle()
         showPlayerControls()
         scheduleControlsHide()
+    }
+
+    /**
+     * Main, search and folder surfaces draw edge-to-edge, but keep interactive content
+     * inside the status bar, navigation bar and display cutout safe areas.
+     */
+    private fun applyScreenInsets(view: View) {
+        ViewCompat.setOnApplyWindowInsetsListener(view) { target, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            target.setPadding(
+                0,
+                maxOf(bars.top, cutout.top),
+                0,
+                maxOf(bars.bottom, cutout.bottom)
+            )
+            insets
+        }
+        ViewCompat.requestApplyInsets(view)
     }
 
     private fun applyImmersiveMode() {
