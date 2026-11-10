@@ -71,7 +71,6 @@ private const val HOME_BRAND_LOGO_ENABLED = true
 private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 private const val MUTE_BUTTON_ENABLED = true
 private const val REPLAY_AT_END_ENABLED = true
-private const val PLAYER_OPTIONS_ENABLED = true
 private const val PLAYER_MENU_FIX_ENABLED = true
 private const val SEEK_PREVIEW_ENABLED = true
 private const val PLAYER_VECTOR_ICONS_ENABLED = true
@@ -328,6 +327,8 @@ class MainActivity : AppCompatActivity() {
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     private var rotationManuallySelected = false
     private var rotationButton: ImageButton? = null
+    private var playerExpandedOptionsRow: View? = null
+    private var playerExpandButton: ImageButton? = null
     private var playerOptionsPopup: PopupWindow? = null
     private var playerOptionsOpen = false
     private var replacingPlayerPopup = false
@@ -610,6 +611,11 @@ class MainActivity : AppCompatActivity() {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 currentIndex = exo.currentMediaItemIndex
                 currentPlayerTitle = queue.getOrNull(currentIndex)?.name ?: currentPlayerTitle
+                playerExpandedOptionsRow?.visibility = View.GONE
+                playerExpandButton?.rotation = 0f
+                playerExpandButton?.contentDescription = "Expand playback options"
+                resetVideoZoom()
+                applySavedAspectRatio()
                 updatePlayerTitle()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { updatePlayerTitle() }
@@ -660,6 +666,7 @@ class MainActivity : AppCompatActivity() {
         pv.clipChildren = false
         pv.clipToPadding = false
         resetVideoZoom()
+        applySavedAspectRatio()
         if (SUBTITLE_SIZE_ENABLED) {
             try {
                 val savedSize = getSharedPreferences("clean_player_subtitles", MODE_PRIVATE).getString("text_size", "Medium") ?: "Medium"
@@ -842,14 +849,14 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(8), dp(6), dp(8), dp(2))
         }
         val close = playerOverlayButton(R.drawable.ic_player_back)
-        toolbar.addView(close, LinearLayout.LayoutParams(dp(44), dp(44)))
+        toolbar.addView(close, LinearLayout.LayoutParams(dp(48), dp(48)))
         close.setOnClickListener { player?.pause(); showHome() }
         val now = label(currentPlayerTitle, 15, text, true).apply {
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         }
         playerTitleView = now
-        toolbar.addView(now, LinearLayout.LayoutParams(0, -2, 0.5f))
+        toolbar.addView(now, LinearLayout.LayoutParams(0, -2, 1f))
         top.addView(toolbar, LinearLayout.LayoutParams(-1, -2))
 
         val quickOptions = LinearLayout(this).apply {
@@ -950,6 +957,8 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { toggleAudioOnly(); showPlayerControls(); scheduleControlsHide() }
         }
         expandedOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(48), dp(48)))
+        playerExpandedOptionsRow = expandedOptions
+        playerExpandButton = expand
         top.addView(expandedOptions, LinearLayout.LayoutParams(-1, -2))
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
@@ -1103,21 +1112,6 @@ class MainActivity : AppCompatActivity() {
      * Main, search and folder surfaces draw edge-to-edge, but keep interactive content
      * inside the status bar, navigation bar and display cutout safe areas.
      */
-    private fun showPlayerOptionsMenu(anchor: View) {
-        try {
-            val entries = listOf("Audio", "Subtitles", "Aspect ratio")
-            showPlayerPopup(anchor, entries, null) { choice ->
-                when (choice) {
-                    "Audio" -> showAudioTrackMenu(anchor)
-                    "Subtitles" -> showSubtitleTrackMenu(anchor)
-                    "Aspect ratio" -> showAspectRatioMenu(anchor)
-                }
-            }
-        } catch (_: Exception) {
-            playerOptionsOpen = false
-        }
-    }
-
     private fun showAudioTrackMenu(anchor: View) {
         val exo = player ?: return
         val options = mutableListOf<Pair<String, (() -> Unit)?>>()
@@ -1474,27 +1468,45 @@ class MainActivity : AppCompatActivity() {
         showPlayerPopup(anchor, labels, actions) { }
     }
 
+    private fun applyAspectRatioSelection(label: String) {
+        try {
+            val view = playerView ?: return
+            val mode = when (label) {
+                "Fill" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                "Zoom" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            }
+            view.resizeMode = mode
+            val contentFrame = view.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)
+            if (label == "16:9" || label == "4:3") {
+                contentFrame?.setAspectRatio(if (label == "16:9") 16f / 9f else 4f / 3f)
+            } else {
+                contentFrame?.setAspectRatio(0f)
+            }
+            resetVideoZoom()
+        } catch (_: Exception) { }
+    }
+
+    private fun applySavedAspectRatio() {
+        try {
+            val uri = queue.getOrNull(currentIndex)?.uri ?: player?.currentMediaItem?.localConfiguration?.uri
+            val key = uri?.toString() ?: "default"
+            val selected = getSharedPreferences("clean_player_aspect_ratio", MODE_PRIVATE).getString(key, "Fit") ?: "Fit"
+            applyAspectRatioSelection(selected)
+        } catch (_: Exception) { }
+    }
+
     private fun showAspectRatioMenu(anchor: View) {
         val choices = listOf("Fit", "Fill", "Zoom", "16:9", "4:3")
         val prefs = getSharedPreferences("clean_player_aspect_ratio", MODE_PRIVATE)
-        val key = queue.getOrNull(currentIndex)?.uri?.toString() ?: "default"
+        val uri = queue.getOrNull(currentIndex)?.uri ?: player?.currentMediaItem?.localConfiguration?.uri
+        val key = uri?.toString() ?: "default"
         val current = prefs.getString(key, "Fit") ?: "Fit"
-        val rows = choices.map { label ->
-            "${if (label == current) "✓ " else ""}$label" to {
+        val rows = choices.map { choice ->
+            "${if (choice == current) "✓ " else ""}$choice" to {
                 try {
-                    val mode = when (label) {
-                        "Fill" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
-                        "Zoom" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
-                        else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
-                    }
-                    playerView?.resizeMode = mode
-                    if (label == "16:9" || label == "4:3") {
-                        val ratio = if (label == "16:9") 16f / 9f else 4f / 3f
-                        playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.setAspectRatio(ratio)
-                    } else {
-                        playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.setAspectRatio(0f)
-                    }
-                    prefs.edit().putString(key, label).apply()\n                    resetVideoZoom()
+                    applyAspectRatioSelection(choice)
+                    prefs.edit().putString(key, choice).apply()
                 } catch (_: Exception) { }
             }
         }
