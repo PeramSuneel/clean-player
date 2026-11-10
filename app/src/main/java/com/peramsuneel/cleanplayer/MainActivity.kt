@@ -245,6 +245,9 @@ class MainActivity : AppCompatActivity() {
     private var initialBrightness = 0.5f
     private var initialVolume = 0
     private var currentPlayerTitle = "Now playing"
+    private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+    private var rotationManuallySelected = false
+    private var rotationButton: Button? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -496,6 +499,8 @@ class MainActivity : AppCompatActivity() {
         onlineMode = false
         queue.clear(); queue.addAll(items); currentIndex = index
         currentPlayerTitle = queue.getOrNull(index)?.name ?: "Now playing"
+        rotationManuallySelected = false
+        playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         val exo = ExoPlayer.Builder(this).build()
         player?.release(); player = exo
         exo.setMediaItems(queue.map { MediaItem.fromUri(it.uri) }, index, 0L)
@@ -507,13 +512,16 @@ class MainActivity : AppCompatActivity() {
                 updatePlayerTitle()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { updatePlayerTitle() }
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                applyVideoDefaultOrientation(videoSize)
+            }
         })
         showPlayer()
     }
 
     private fun showPlayer() {
         showingPlayer = true
-        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
+        applyPlayerOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT >= 28) {
             window.attributes = window.attributes.apply {
@@ -668,8 +676,12 @@ class MainActivity : AppCompatActivity() {
         val toggle = playerOverlayButton(if (player?.isPlaying == true) "Ⅱ" else "▶", 24)
         val forward = playerOverlayButton("+10", 17)
         val next = playerOverlayButton("▶|", 17)
+        val rotate = playerOverlayButton("⟳", 22).apply {
+            contentDescription = "Rotate screen"
+        }
+        rotationButton = rotate
         playPauseButton = toggle
-        listOf(prev, back, toggle, forward, next).forEachIndexed { i, b ->
+        listOf(prev, back, toggle, forward, next, rotate).forEachIndexed { i, b ->
             controls.addView(b, LinearLayout.LayoutParams(0, dp(if (i == 2) 58 else 48), if (i == 2) 1.25f else 1f).apply {
                 setMargins(dp(3), 0, dp(3), 0)
             })
@@ -683,6 +695,14 @@ class MainActivity : AppCompatActivity() {
         }
         forward.setOnClickListener { seekBy(10_000L); showSeekFeedback("+10 sec"); scheduleControlsHide() }
         next.setOnClickListener { player?.seekToNextMediaItem(); scheduleControlsHide() }
+        rotate.setOnClickListener {
+            rotationManuallySelected = true
+            val nextOrientation = if (playerOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+            applyPlayerOrientation(nextOrientation)
+            showPlayerControls()
+            scheduleControlsHide()
+        }
         bottomPanel.addView(controls, LinearLayout.LayoutParams(-1, -2))
         playerControls = bottomPanel
         pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
@@ -818,9 +838,13 @@ class MainActivity : AppCompatActivity() {
     override fun onConfigurationChanged(newConfig: Configuration) {
         super.onConfigurationChanged(newConfig)
         if (showingPlayer) {
-            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
             applyImmersiveMode()
-            playerView?.let { ViewCompat.requestApplyInsets(it) }
+            playerView?.let {
+                ViewCompat.requestApplyInsets(it)
+                it.requestLayout()
+            }
+            playerSeekBar?.invalidate()
+            playerControls?.requestLayout()
         }
     }
 
@@ -1046,13 +1070,42 @@ class MainActivity : AppCompatActivity() {
         currentPlayerTitle = title
         queue.clear()
         currentIndex = 0
+        rotationManuallySelected = false
+        playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         val exo = ExoPlayer.Builder(this).build()
         player?.release()
         player = exo
+        exo.addListener(object : Player.Listener {
+            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
+                applyVideoDefaultOrientation(videoSize)
+            }
+        })
         exo.setMediaItem(MediaItem.fromUri(url))
         exo.prepare()
         exo.playWhenReady = true
         showPlayer()
+    }
+
+    private fun applyPlayerOrientation(orientation: Int) {
+        if (!showingPlayer && orientation != ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) return
+        playerOrientation = orientation
+        requestedOrientation = orientation
+        rotationButton?.contentDescription = if (orientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+            "Rotate to landscape" else "Rotate to portrait"
+        playerView?.let {
+            it.requestLayout()
+            ViewCompat.requestApplyInsets(it)
+        }
+        playerSeekBar?.invalidate()
+        playerControls?.requestLayout()
+    }
+
+    private fun applyVideoDefaultOrientation(videoSize: androidx.media3.common.VideoSize) {
+        if (!showingPlayer || rotationManuallySelected || videoSize.width <= 0 || videoSize.height <= 0) return
+        val aspectRatio = videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio / videoSize.height.toFloat()
+        val orientation = if (aspectRatio > 1.05f) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        applyPlayerOrientation(orientation)
     }
 
     private fun playerOverlayButton(caption: String, size: Int): Button = Button(this).apply {
