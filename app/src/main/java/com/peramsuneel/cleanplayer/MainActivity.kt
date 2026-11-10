@@ -79,6 +79,7 @@ private const val AUDIO_TRACK_SESSION_MEMORY_ENABLED = true
 private const val SPEED_LABEL_LIVE_ENABLED = true
 private const val SCREENSHOT_ENABLED = true
 private const val REPEAT_ONE_ENABLED = true
+private const val AUDIO_ONLY_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -295,6 +296,8 @@ class MainActivity : AppCompatActivity() {
     private var preferredAudioLanguage: String? = null
     private var playerMuteButton: ImageButton? = null
     private var repeatButton: ImageButton? = null
+    private var audioOnlyEnabled = false
+    private var audioOnlyOverlay: TextView? = null
     private var playerSpeedLabel: TextView? = null
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -569,6 +572,7 @@ class MainActivity : AppCompatActivity() {
         cancelOnlineWork()
         onlineMode = false
         queue.clear(); queue.addAll(items); currentIndex = index
+        audioOnlyEnabled = false
         currentPlayerTitle = queue.getOrNull(index)?.name ?: "Now playing"
         rotationManuallySelected = false
         playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -632,6 +636,16 @@ class MainActivity : AppCompatActivity() {
             } catch (_: Exception) { }
         }
         root.addView(pv, LinearLayout.LayoutParams(-1, -1))
+        audioOnlyOverlay = TextView(this).apply {
+            text = "AUDIO ONLY"
+            textSize = 13f
+            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.player_primary))
+            gravity = Gravity.CENTER
+            letterSpacing = 0.18f
+            visibility = View.GONE
+            setBackgroundColor(bg)
+        }
+        pv.addView(audioOnlyOverlay, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
 
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
@@ -1108,6 +1122,20 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Subtitle loaded", Toast.LENGTH_SHORT).show()
         } catch (_: Exception) {
             Toast.makeText(this, "Couldn't load subtitle; video continues", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun toggleAudioOnly() {
+        if (!AUDIO_ONLY_ENABLED) return
+        try {
+            val surface = playerView?.videoSurfaceView ?: throw IllegalStateException("Video surface unavailable")
+            audioOnlyEnabled = !audioOnlyEnabled
+            surface.visibility = if (audioOnlyEnabled) View.INVISIBLE else View.VISIBLE
+            audioOnlyOverlay?.visibility = if (audioOnlyEnabled) View.VISIBLE else View.GONE
+            Toast.makeText(this, if (audioOnlyEnabled) "Audio-only mode on" else "Video mode on", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            audioOnlyEnabled = false
+            Toast.makeText(this, "Unable to change audio-only mode", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -1769,6 +1797,7 @@ class MainActivity : AppCompatActivity() {
         onlineMode = false
         currentPlayerTitle = title
         queue.clear()
+        audioOnlyEnabled = false
         currentIndex = 0
         rotationManuallySelected = false
         playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
