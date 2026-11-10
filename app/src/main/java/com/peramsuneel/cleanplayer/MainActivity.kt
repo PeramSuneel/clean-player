@@ -48,6 +48,8 @@ import java.util.concurrent.Future
 import com.peramsuneel.cleanplayer.online.OnlineSearchRepository
 import com.peramsuneel.cleanplayer.online.OnlineSearchResult
 
+private const val HOME_BRAND_LOGO_ENABLED = true
+
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
 private class PlayerSeekBar(
@@ -344,6 +346,18 @@ class MainActivity : AppCompatActivity() {
         applyScreenInsets(root)
         val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(14), dp(18), dp(8)) }
         val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        if (HOME_BRAND_LOGO_ENABLED) {
+            try {
+                val brandMark = ImageView(this).apply {
+                    setImageResource(R.drawable.ic_brand_mark)
+                    contentDescription = "Clean Player logo"
+                    scaleType = ImageView.ScaleType.FIT_CENTER
+                }
+                toolbar.addView(brandMark, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(9) })
+            } catch (_: Exception) {
+                // Branding is optional; keep the home screen usable if the asset cannot load.
+            }
+        }
         toolbar.addView(label("Clean Player", 24, text, true), LinearLayout.LayoutParams(0, -2, 1f))
         val viewButton = button(if (isGrid) "▦" else "☷", false)
         viewButton.contentDescription = "Switch grid or list view"
