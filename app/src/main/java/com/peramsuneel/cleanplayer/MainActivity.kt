@@ -2,6 +2,10 @@ package com.peramsuneel.cleanplayer
 
 import android.Manifest
 import android.content.ContentUris
+import android.content.ContentValues
+import android.view.PixelCopy
+import android.view.SurfaceView
+import android.os.Environment
 import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
@@ -73,6 +77,7 @@ private const val LOCAL_SUBTITLES_ENABLED = false
 private const val PLAYER_TOP_LEFT_ENABLED = true
 private const val AUDIO_TRACK_SESSION_MEMORY_ENABLED = true
 private const val SPEED_LABEL_LIVE_ENABLED = true
+private const val SCREENSHOT_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -1101,6 +1106,50 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Subtitle loaded", Toast.LENGTH_SHORT).show()
         } catch (_: Exception) {
             Toast.makeText(this, "Couldn't load subtitle; video continues", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun capturePlayerScreenshot() {
+        if (!SCREENSHOT_ENABLED) return
+        try {
+            if (Build.VERSION.SDK_INT < 29) {
+                Toast.makeText(this, "Screenshot saving requires Android 10 or later", Toast.LENGTH_SHORT).show()
+                return
+            }
+            val surface = playerView?.videoSurfaceView as? SurfaceView
+                ?: throw IllegalStateException("Video surface unavailable")
+            if (surface.width <= 0 || surface.height <= 0) throw IllegalStateException("Video frame unavailable")
+            val bitmap = Bitmap.createBitmap(surface.width, surface.height, Bitmap.Config.ARGB_8888)
+            PixelCopy.request(surface, bitmap, { result ->
+                try {
+                    if (result != PixelCopy.SUCCESS) {
+                        bitmap.recycle()
+                        Toast.makeText(this, "Screenshot capture failed", Toast.LENGTH_SHORT).show()
+                        return@request
+                    }
+                    val values = ContentValues().apply {
+                        put(MediaStore.Images.Media.DISPLAY_NAME, "CleanPlayer_${System.currentTimeMillis()}.jpg")
+                        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                        put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/CleanPlayer")
+                        put(MediaStore.Images.Media.IS_PENDING, 1)
+                    }
+                    val uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                        ?: throw IllegalStateException("Could not create image")
+                    contentResolver.openOutputStream(uri)?.use { output ->
+                        if (!bitmap.compress(Bitmap.CompressFormat.JPEG, 95, output)) throw IllegalStateException("Image encoding failed")
+                    } ?: throw IllegalStateException("Could not write image")
+                    values.clear()
+                    values.put(MediaStore.Images.Media.IS_PENDING, 0)
+                    contentResolver.update(uri, values, null, null)
+                    bitmap.recycle()
+                    Toast.makeText(this, "Screenshot saved to Pictures/CleanPlayer", Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) {
+                    try { bitmap.recycle() } catch (_: Exception) { }
+                    Toast.makeText(this, "Couldn't save screenshot", Toast.LENGTH_SHORT).show()
+                }
+            }, onlineHandler)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Screenshot unavailable", Toast.LENGTH_SHORT).show()
         }
     }
 
