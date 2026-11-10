@@ -49,6 +49,7 @@ import com.peramsuneel.cleanplayer.online.OnlineSearchRepository
 import com.peramsuneel.cleanplayer.online.OnlineSearchResult
 
 private const val HOME_BRAND_LOGO_ENABLED = true
+private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -615,7 +616,12 @@ class MainActivity : AppCompatActivity() {
                                 val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
                                 val volume = (initialVolume + (fraction * maxVolume).toInt()).coerceIn(0, maxVolume)
                                 audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
-                                playerSeekIndicator?.text = "Volume $volume / $maxVolume"
+                                if (VOLUME_PERCENT_INDICATOR_ENABLED) {
+                                    val volumePercent = if (maxVolume > 0) (volume * 100f / maxVolume).toInt() else 0
+                                    playerSeekIndicator?.text = "Volume $volumePercent%"
+                                } else {
+                                    playerSeekIndicator?.text = "Volume $volume / $maxVolume"
+                                }
                             }
                             playerSeekIndicator?.visibility = View.VISIBLE
                         }
