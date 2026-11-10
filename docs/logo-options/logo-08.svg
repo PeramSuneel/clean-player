@@ -1,4 +1,24 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo concept 08">
-<rect x="56" y="56" width="400" height="400" rx="112" fill="#E8ECFA"/><path d="M140 150H320Q372 150 372 202V310Q372 362 320 362H140Z" fill="#FFFFFF"/><path d="M230 203L320 256L230 309Z" fill="#697FC2"/><path d="M142 392H370" stroke="#A6B3E0" stroke-width="16" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Logo concept 08 — blue wide player">
+<defs>
+  <linearGradient id="tile" x1="72" y1="64" x2="440" y2="448" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#EEF7FF"/>
+    <stop offset="0.52" stop-color="#DCEBFF"/>
+    <stop offset="1" stop-color="#C7DDFF"/>
+  </linearGradient>
+  <linearGradient id="play" x1="220" y1="198" x2="326" y2="316" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#60A5FA"/>
+    <stop offset="0.55" stop-color="#347FE5"/>
+    <stop offset="1" stop-color="#1D4ED8"/>
+  </linearGradient>
+  <linearGradient id="progress" x1="142" y1="392" x2="370" y2="392" gradientUnits="userSpaceOnUse">
+    <stop offset="0" stop-color="#93C5FD"/>
+    <stop offset="1" stop-color="#3B82F6"/>
+  </linearGradient>
+</defs>
+<rect x="56" y="56" width="400" height="400" rx="112" fill="url(#tile)"/>
+<path d="M140 150H320Q372 150 372 202V310Q372 362 320 362H140Z" fill="#FFFFFF"/>
+<path d="M230 203L320 256L230 309Z" fill="url(#play)"/>
+<path d="M142 392H370" stroke="#B8D5FB" stroke-width="16" stroke-linecap="round"/>
+<path d="M142 392H292" stroke="url(#progress)" stroke-width="16" stroke-linecap="round"/>
 </svg>
