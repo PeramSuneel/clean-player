@@ -72,6 +72,7 @@ private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 private const val PLAYER_TOP_LEFT_ENABLED = true
 private const val AUDIO_TRACK_SESSION_MEMORY_ENABLED = true
+private const val SPEED_LABEL_LIVE_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -287,6 +288,7 @@ class MainActivity : AppCompatActivity() {
     private var lastAudibleVolume = 0
     private var preferredAudioLanguage: String? = null
     private var playerMuteButton: ImageButton? = null
+    private var playerSpeedLabel: TextView? = null
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     private var rotationManuallySelected = false
@@ -565,6 +567,7 @@ class MainActivity : AppCompatActivity() {
         playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         val exo = buildPlayerSafely()
         player?.release(); player = exo
+        try { if (SPEED_LABEL_LIVE_ENABLED) playerSpeedLabel?.text = "1X"; exo.setPlaybackParameters(androidx.media3.common.PlaybackParameters(1f)) } catch (_: Exception) { }
         exo.setMediaItems(queue.map { MediaItem.fromUri(it.uri) }, index, 0L)
         exo.prepare(); exo.playWhenReady = true
         exo.addListener(object : Player.Listener {
@@ -804,6 +807,7 @@ class MainActivity : AppCompatActivity() {
             setBackgroundResource(android.R.drawable.list_selector_background)
             setOnClickListener { showPlaybackSpeedMenu(this) }
         }
+        playerSpeedLabel = speed
         quickOptions.addView(speed, LinearLayout.LayoutParams(dp(54), dp(42)))
         val rotate = playerOverlayButton(R.drawable.ic_player_rotate).apply {
             contentDescription = "Rotate screen"
@@ -1152,6 +1156,7 @@ class MainActivity : AppCompatActivity() {
             {
                 try {
                     exo.setPlaybackParameters(androidx.media3.common.PlaybackParameters(speed))
+                    if (SPEED_LABEL_LIVE_ENABLED) playerSpeedLabel?.text = if (speed == speed.toInt().toFloat()) speed.toInt().toString() + "X" else speed.toString() + "X"
                 } catch (_: Exception) {
                     Toast.makeText(this, "Unable to change playback speed", Toast.LENGTH_SHORT).show()
                 }
@@ -1716,6 +1721,7 @@ class MainActivity : AppCompatActivity() {
                 applyVideoDefaultOrientation(videoSize)
             }
         })
+        try { if (SPEED_LABEL_LIVE_ENABLED) playerSpeedLabel?.text = "1X"; exo.setPlaybackParameters(androidx.media3.common.PlaybackParameters(1f)) } catch (_: Exception) { }
         exo.setMediaItem(MediaItem.fromUri(url))
         exo.prepare()
         exo.playWhenReady = true
