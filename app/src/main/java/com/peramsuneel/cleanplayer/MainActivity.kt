@@ -62,6 +62,7 @@ private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 private const val MUTE_BUTTON_ENABLED = true
 private const val REPLAY_AT_END_ENABLED = true
 private const val PLAYER_OPTIONS_ENABLED = true
+private const val PLAYER_MENU_REPAIR_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 
@@ -607,6 +608,7 @@ class MainActivity : AppCompatActivity() {
         val gestureSurface = View(this).apply {
             isClickable = true
             setOnTouchListener { _, event ->
+                if (PLAYER_MENU_REPAIR_ENABLED && playerOptionsOpen) return@setOnTouchListener true
                 gestureDetector.onTouchEvent(event)
                 when (event.actionMasked) {
                     MotionEvent.ACTION_DOWN -> {
@@ -845,6 +847,7 @@ class MainActivity : AppCompatActivity() {
      * inside the status bar, navigation bar and display cutout safe areas.
      */
     private fun showPlayerOptionsMenu(anchor: View) {
+        if (!PLAYER_MENU_REPAIR_ENABLED) return
         try {
             val entries = listOf("Audio", "Subtitles", "Aspect ratio")
             showPlayerPopup(anchor, entries, null) { choice ->
@@ -893,7 +896,8 @@ class MainActivity : AppCompatActivity() {
     private fun showSubtitleTrackMenu(anchor: View) {
         val exo = player ?: return
         val options = mutableListOf<Pair<String, (() -> Unit)?>>()
-        options.add("Off" to {
+        val subtitlesCurrentlySelected = try { exo.currentTracks.groups.any { group -> group.type == C.TRACK_TYPE_TEXT && (0 until group.length).any { group.isTrackSelected(it) } } } catch (_: Exception) { false }
+        options.add("${if (subtitlesCurrentlySelected) "" else "✓ "}Off" to {
             try {
                 exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
                     .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
@@ -933,9 +937,6 @@ class MainActivity : AppCompatActivity() {
             } else {
                 Toast.makeText(this, "Subtitle file loading is unavailable", Toast.LENGTH_SHORT).show()
             }
-        })
-        options.add("Search online" to {
-            Toast.makeText(this, "Online subtitle search is coming in a later stage", Toast.LENGTH_SHORT).show()
         })
         showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
     }
@@ -1024,12 +1025,14 @@ class MainActivity : AppCompatActivity() {
                         "Zoom" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
                         else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
                     }
-                    playerView?.resizeMode = mode
+                    val contentFrame = playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)
+                        ?: throw IllegalStateException("Player content frame unavailable")
+                    contentFrame.resizeMode = mode
                     if (label == "16:9" || label == "4:3") {
                         val ratio = if (label == "16:9") 16f / 9f else 4f / 3f
-                        playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.setAspectRatio(ratio)
+                        contentFrame.setAspectRatio(ratio)
                     } else {
-                        playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.setAspectRatio(0f)
+                        contentFrame.setAspectRatio(0f)
                     }
                     prefs.edit().putString(key, label).apply()
                 } catch (_: Exception) { }
@@ -1045,54 +1048,82 @@ class MainActivity : AppCompatActivity() {
         onSelect: (String) -> Unit
     ) {
         try {
+            // Pause auto-hide before replacing or displaying any menu.
+            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
             playerOptionsPopup?.dismiss()
             val content = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(8), dp(6), dp(8), dp(6))
                 background = GradientDrawable().apply {
-                    setColor(0xB3101820.toInt())
+                    setColor(0xBF000000.toInt())
                     cornerRadius = dp(14).toFloat()
-                    setStroke(dp(1), 0x55FFFFFF)
+                    setStroke(dp(1), 0x552A2A2A)
                 }
             }
             labels.forEachIndexed { index, labelText ->
-                val item = TextView(this).apply {
-                    text = labelText
+                val selected = labelText.startsWith("✓ ")
+                val visibleLabel = if (selected) labelText.removePrefix("✓ ") else labelText
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    isClickable = true
+                    isFocusable = true
+                    background = android.util.TypedValue().let { value ->
+                        val out = android.util.TypedValue()
+                        theme.resolveAttribute(android.R.attr.selectableItemBackground, out, true)
+                        ContextCompat.getDrawable(this@MainActivity, out.resourceId)
+                    }
+                    minimumHeight = dp(48)
+                    setPadding(dp(14), dp(8), dp(14), dp(8))
+                }
+                val label = TextView(this).apply {
+                    text = visibleLabel
                     textSize = 14f
                     setTextColor(Color.WHITE)
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(14), dp(10), dp(18), dp(10))
-                    minHeight = dp(44)
-                    isClickable = true
-                    setOnClickListener {
-                        try {
-                            actions?.getOrNull(index)?.invoke()
-                            onSelect(labelText)
-                        } catch (_: Exception) {
-                            Toast.makeText(this@MainActivity, "Unable to apply this option", Toast.LENGTH_SHORT).show()
-                        }
-                        playerOptionsPopup?.dismiss()
-                    }
                 }
-                content.addView(item, LinearLayout.LayoutParams(-1, -2))
+                row.addView(label, LinearLayout.LayoutParams(0, -2, 1f))
+                if (selected) {
+                    val check = TextView(this).apply {
+                        text = "✓"
+                        textSize = 18f
+                        setTextColor(0xFF2F80ED.toInt())
+                        gravity = Gravity.CENTER
+                    }
+                    row.addView(check, LinearLayout.LayoutParams(dp(24), -2))
+                }
+                row.setOnClickListener {
+                    val clickedPopup = playerOptionsPopup
+                    try {
+                        actions?.getOrNull(index)?.invoke()
+                        onSelect(visibleLabel)
+                    } catch (_: Exception) {
+                        Toast.makeText(this@MainActivity, "Unable to apply this option", Toast.LENGTH_SHORT).show()
+                    }
+                    // A root-menu selection may have opened a replacement submenu.
+                    // Dismiss only the popup that received this click, never the new one.
+                    if (playerOptionsPopup === clickedPopup) clickedPopup?.dismiss()
+                }
+                content.addView(row, LinearLayout.LayoutParams(-1, -2))
             }
             val popup = PopupWindow(content, dp(260), -2, true).apply {
                 isOutsideTouchable = true
                 setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
                 elevation = dp(12).toFloat()
                 setOnDismissListener {
-                    playerOptionsOpen = false
-                    playerOptionsPopup = null
-                    scheduleControlsHide()
+                    if (playerOptionsPopup === this) {
+                        playerOptionsPopup = null
+                        playerOptionsOpen = false
+                        scheduleControlsHide()
+                    }
                 }
             }
             playerOptionsPopup = popup
             playerOptionsOpen = true
             popup.showAsDropDown(anchor, -dp(210), dp(4), Gravity.END)
-            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
         } catch (_: Exception) {
-            playerOptionsOpen = false
-            playerOptionsPopup = null
+            playerOptionsOpen = playerOptionsPopup?.isShowing == true
+            if (!playerOptionsOpen) playerOptionsPopup = null
         }
     }
 
