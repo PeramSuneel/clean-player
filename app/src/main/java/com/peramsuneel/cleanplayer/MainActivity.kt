@@ -64,6 +64,7 @@ private const val REPLAY_AT_END_ENABLED = true
 private const val PLAYER_OPTIONS_ENABLED = true
 private const val PLAYER_MENU_FIX_ENABLED = true
 private const val SEEK_PREVIEW_ENABLED = true
+private const val PLAYER_VECTOR_ICONS_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 
@@ -264,7 +265,7 @@ class MainActivity : AppCompatActivity() {
     private var playerTopBar: LinearLayout? = null
     private var playerSeekIndicator: TextView? = null
     private var playerTitleView: TextView? = null
-    private var playPauseButton: Button? = null
+    private var playPauseButton: ImageButton? = null
     private var controlsHideRunnable: Runnable? = null
     private var gestureMode = 0
     private var dragStartX = 0f
@@ -274,11 +275,11 @@ class MainActivity : AppCompatActivity() {
     private var initialBrightness = 0.5f
     private var initialVolume = 0
     private var lastAudibleVolume = 0
-    private var playerMuteButton: Button? = null
+    private var playerMuteButton: ImageButton? = null
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     private var rotationManuallySelected = false
-    private var rotationButton: Button? = null
+    private var rotationButton: ImageButton? = null
     private var playerOptionsPopup: PopupWindow? = null
     private var playerOptionsOpen = false
     private val subtitleFilePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -667,7 +668,7 @@ class MainActivity : AppCompatActivity() {
                                 val volume = (initialVolume + (fraction * maxVolume).toInt()).coerceIn(0, maxVolume)
                                 audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
                                 if (volume > 0) lastAudibleVolume = volume
-                                playerMuteButton?.text = if (volume == 0) "×" else "🔊"
+                                playerMuteButton?.setImageResource(if (volume == 0) R.drawable.ic_player_mute else R.drawable.ic_player_volume)
                                 playerMuteButton?.contentDescription = if (volume == 0) "Unmute audio" else "Mute audio"
                                 if (VOLUME_PERCENT_INDICATOR_ENABLED) {
                                     val volumePercent = if (maxVolume > 0) (volume * 100f / maxVolume).toInt() else 0
@@ -705,7 +706,7 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(12), dp(8), dp(12), dp(8))
             setBackgroundColor(0x66000000)
         }
-        val close = playerOverlayButton("‹", 26)
+        val close = playerOverlayButton(R.drawable.ic_player_back)
         top.addView(close, LinearLayout.LayoutParams(dp(48), dp(44)))
         close.setOnClickListener { player?.pause(); showHome() }
         val now = label(currentPlayerTitle, 15, text, true).apply {
@@ -718,7 +719,7 @@ class MainActivity : AppCompatActivity() {
             val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
             val currentVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
             if (currentVolume > 0) lastAudibleVolume = currentVolume
-            playerOverlayButton(if (currentVolume == 0) "×" else "🔊", 17).apply {
+            playerOverlayButton(if (currentVolume == 0) R.drawable.ic_player_mute else R.drawable.ic_player_volume).apply {
                 contentDescription = if (currentVolume == 0) "Unmute audio" else "Mute audio"
                 setOnClickListener {
                     try {
@@ -733,7 +734,7 @@ class MainActivity : AppCompatActivity() {
                             manager.setStreamVolume(AudioManager.STREAM_MUSIC, restore.coerceAtMost(maximum), 0)
                         }
                         val muted = manager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0
-                        text = if (muted) "×" else "🔊"
+                        setImageResource(if (muted) R.drawable.ic_player_mute else R.drawable.ic_player_volume)
                         contentDescription = if (muted) "Unmute audio" else "Mute audio"
                         showPlayerControls()
                         scheduleControlsHide()
@@ -745,13 +746,13 @@ class MainActivity : AppCompatActivity() {
         } else null
         playerMuteButton = mute
         if (mute != null) top.addView(mute, LinearLayout.LayoutParams(dp(44), dp(44)))
-        val rotate = playerOverlayButton("⟳", 22).apply {
+        val rotate = playerOverlayButton(R.drawable.ic_player_rotate).apply {
             contentDescription = "Rotate screen"
         }
         rotationButton = rotate
         top.addView(rotate, LinearLayout.LayoutParams(dp(44), dp(44)))
         if (PLAYER_OPTIONS_ENABLED) {
-            val more = playerOverlayButton("⋮", 24).apply {
+            val more = playerOverlayButton(R.drawable.ic_player_more).apply {
                 contentDescription = "More playback options"
                 setOnClickListener {
                     try {
@@ -795,11 +796,11 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(10), dp(10), dp(10), dp(14))
         }
-        val prev = playerOverlayButton("|◀", 17)
-        val back = playerOverlayButton("−10", 17)
-        val toggle = playerOverlayButton(if (player?.isPlaying == true) "Ⅱ" else "▶", 24)
-        val forward = playerOverlayButton("+10", 17)
-        val next = playerOverlayButton("▶|", 17)
+        val prev = playerOverlayButton(R.drawable.ic_player_previous)
+        val back = playerOverlayButton(R.drawable.ic_player_rewind)
+        val toggle = playerOverlayButton(if (player?.isPlaying == true) R.drawable.ic_player_pause else R.drawable.ic_player_play)
+        val forward = playerOverlayButton(R.drawable.ic_player_forward)
+        val next = playerOverlayButton(R.drawable.ic_player_next)
 
         playPauseButton = toggle
         val controlButtons = mutableListOf(prev, back, toggle, forward, next)
@@ -1090,10 +1091,24 @@ class MainActivity : AppCompatActivity() {
             }
             labels.forEachIndexed { index, labelText ->
                 val item = TextView(this).apply {
-                    text = labelText
+                    val selected = labelText.startsWith("✓ ")
+                    val displayText = labelText.removePrefix("✓ ")
+                    text = if (selected) android.text.SpannableString("✓  $displayText").apply {
+                        setSpan(android.text.style.ForegroundColorSpan(0xFF2F80ED.toInt()), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                    } else displayText
                     textSize = 14f
                     setTextColor(Color.WHITE)
                     gravity = Gravity.CENTER_VERTICAL
+                    val icon = when (displayText) {
+                        "Audio" -> R.drawable.ic_player_audio
+                        "Subtitles", "Off", "Load from storage" -> R.drawable.ic_player_subtitles
+                        "Aspect ratio", "Fit", "Fill", "Zoom", "16:9", "4:3" -> R.drawable.ic_player_aspect
+                        else -> 0
+                    }
+                    if (icon != 0) {
+                        setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
+                        compoundDrawablePadding = dp(12)
+                    }
                     setPadding(dp(14), dp(10), dp(18), dp(10))
                     minHeight = dp(48)
                     isClickable = true
@@ -1552,28 +1567,32 @@ class MainActivity : AppCompatActivity() {
         applyPlayerOrientation(orientation)
     }
 
-    private fun playerOverlayButton(caption: String, size: Int): Button = Button(this).apply {
-        text = caption
-        textSize = size.toFloat()
-        isAllCaps = false
-        setTextColor(0xFFFFFFFF.toInt())
-        setBackgroundColor(0x00000000)
+    private fun playerOverlayButton(icon: Int): ImageButton = ImageButton(this).apply {
+        try {
+            setImageResource(icon)
+            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+        } catch (_: Exception) { }
+        contentDescription = "Player control"
+        scaleType = ImageView.ScaleType.CENTER_INSIDE
+        setPadding(dp(10), dp(10), dp(10), dp(10))
+        setBackgroundResource(android.R.drawable.list_selector_background)
         minHeight = 0
         minimumHeight = 0
         minWidth = 0
         minimumWidth = 0
         stateListAnimator = null
-        includeFontPadding = false
     }
 
     private fun updatePlayerTitle() {
         playerTitleView?.text = currentPlayerTitle
         val activePlayer = player
-        playPauseButton?.text = when {
-            activePlayer?.isPlaying == true -> "Ⅱ"
-            REPLAY_AT_END_ENABLED && activePlayer != null && playbackIsAtEnd(activePlayer) -> "↻"
-            else -> "▶"
-        }
+        try {
+            playPauseButton?.setImageResource(when {
+                activePlayer?.isPlaying == true -> R.drawable.ic_player_pause
+                REPLAY_AT_END_ENABLED && activePlayer != null && playbackIsAtEnd(activePlayer) -> R.drawable.ic_player_replay
+                else -> R.drawable.ic_player_play
+            })
+        } catch (_: Exception) { }
     }
 
     private fun buildPlayerSafely(): ExoPlayer = try {
