@@ -91,6 +91,7 @@ private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = false
 private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
 private const val PLAYER_INLINE_OPTIONS_ENABLED = true
 private const val PLAYER_FULLSCREEN_OVERLAY_ENABLED = true
+private const val BOTTOM_ROTATION_BUTTON_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
@@ -1083,7 +1084,15 @@ class MainActivity : AppCompatActivity() {
                 setMargins(dp(3), 0, dp(3), 0)
             })
         }
-        try { controls.addView(centerControls, FrameLayout.LayoutParams(-2, -2, if (BOTTOM_CONTROLS_CENTERED_ENABLED) Gravity.CENTER else Gravity.START or Gravity.CENTER_VERTICAL)) } catch (_: Exception) { }
+        if (BOTTOM_ROTATION_BUTTON_ENABLED) {
+            controls.addView(
+                rotate,
+                FrameLayout.LayoutParams(dp(48), dp(48), Gravity.START or Gravity.CENTER_VERTICAL).apply {
+                    leftMargin = dp(0)
+                }
+            )
+        }
+        try { controls.addView(centerControls, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER)) } catch (_: Exception) { }
         prev.setOnClickListener { player?.seekToPreviousMediaItem(); scheduleControlsHide() }
         back.setOnClickListener { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() }
         toggle.setOnClickListener {
