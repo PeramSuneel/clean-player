@@ -20,7 +20,7 @@
 - `logo-05.svg` — circular play mark
 - `logo-06.svg` — simple film frame
 - `logo-07.svg` — geometric media mark
-- `logo-08.svg` — wide player frame and progress line
+- `logo-08.svg` — wide player frame with a refined blue-shaded tile, blue play mark, and progress line
 - `logo-09.svg` — ring and play mark
 - `logo-10.svg` — compact portrait-player tile
 
