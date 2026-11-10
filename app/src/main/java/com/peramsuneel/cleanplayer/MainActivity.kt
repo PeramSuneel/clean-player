@@ -125,6 +125,10 @@ class MainActivity : AppCompatActivity() {
                     val id = c.getLong(idCol)
                     val name = c.getString(nameCol) ?: "Media"
                     val path = if (pathCol >= 0) c.getString(pathCol).orEmpty().trimEnd('/') else ""
+                    val pathSegments = path.split('/').filter { it.isNotBlank() }
+                    val isDriveContent = path.contains("com.google.android.apps.docs", ignoreCase = true) ||
+                        pathSegments.any { it.equals("Drive", ignoreCase = true) || it.equals("Google Drive", ignoreCase = true) || it.equals("GoogleDrive", ignoreCase = true) }
+                    if (isDriveContent) continue
                     val folder = path.substringAfterLast('/', path.ifBlank { "Internal storage" }).ifBlank { "Internal storage" }
                     val uri = ContentUris.withAppendedId(collection, id)
                     files.add(MediaFile(id, name, uri, folder, audio, if (durCol >= 0) c.getLong(durCol) else 0L))
