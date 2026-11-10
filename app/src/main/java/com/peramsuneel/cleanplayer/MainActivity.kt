@@ -8,6 +8,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.GestureDetector
@@ -28,6 +29,7 @@ import android.util.Size
 import android.widget.ImageView
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
@@ -43,6 +45,7 @@ import androidx.media3.common.C
 import androidx.media3.common.TrackSelectionOverride
 import androidx.media3.common.Tracks
 import androidx.media3.common.MediaItem
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
@@ -59,6 +62,7 @@ private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 private const val MUTE_BUTTON_ENABLED = true
 private const val REPLAY_AT_END_ENABLED = true
 private const val PLAYER_OPTIONS_ENABLED = true
+private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
@@ -265,6 +269,9 @@ class MainActivity : AppCompatActivity() {
     private var rotationButton: Button? = null
     private var playerOptionsPopup: PopupWindow? = null
     private var playerOptionsOpen = false
+    private val subtitleFilePicker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null && SUBTITLE_FILE_ENABLED) applySubtitleFile(uri)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -541,6 +548,9 @@ class MainActivity : AppCompatActivity() {
                 updatePlayerTitle()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { updatePlayerTitle() }
+            override fun onTracksChanged(tracks: Tracks) {
+                if (SUBTITLE_FILE_ENABLED) selectExternalSubtitleTrack(exo)
+            }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
                 if (REPLAY_AT_END_ENABLED && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
                     handlePlaybackEnded(exo)
@@ -914,12 +924,91 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (_: Exception) { }
         options.add("Load from storage" to {
-            Toast.makeText(this, "Local subtitle loading is coming in the next stage", Toast.LENGTH_SHORT).show()
+            if (SUBTITLE_FILE_ENABLED) {
+                try {
+                    subtitleFilePicker.launch(arrayOf("*/*"))
+                } catch (_: Exception) {
+                    Toast.makeText(this, "Couldn't open subtitle files", Toast.LENGTH_SHORT).show()
+                }
+            } else {
+                Toast.makeText(this, "Subtitle file loading is unavailable", Toast.LENGTH_SHORT).show()
+            }
         })
         options.add("Search online" to {
             Toast.makeText(this, "Online subtitle search is coming in a later stage", Toast.LENGTH_SHORT).show()
         })
         showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
+    }
+
+    private fun applySubtitleFile(uri: Uri) {
+        try {
+            val exo = player ?: throw IllegalStateException("Player unavailable")
+            val displayName = contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) cursor.getString(0) else null
+            } ?: uri.lastPathSegment.orEmpty()
+            val extension = displayName.substringAfterLast('.', "").lowercase(Locale.ROOT)
+            val mimeType = when (extension) {
+                "srt" -> MimeTypes.APPLICATION_SUBRIP
+                "vtt" -> MimeTypes.TEXT_VTT
+                "ass", "ssa" -> MimeTypes.TEXT_SSA
+                else -> {
+                    Toast.makeText(this, "Choose an SRT, VTT, ASS or SSA file", Toast.LENGTH_SHORT).show()
+                    return
+                }
+            }
+
+            try {
+                contentResolver.takePersistableUriPermission(uri, android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            } catch (_: Exception) {
+                // Some document providers grant temporary access only; continue with the granted URI.
+            }
+
+            val itemIndex = exo.currentMediaItemIndex
+            val currentItem = exo.currentMediaItem ?: throw IllegalStateException("No active video")
+            val position = exo.currentPosition
+            val shouldPlay = exo.playWhenReady
+            val subtitle = MediaItem.SubtitleConfiguration.Builder(uri)
+                .setId("clean-player-external-subtitle")
+                .setMimeType(mimeType)
+                .setLanguage("und")
+                .setSelectionFlags(C.SELECTION_FLAG_DEFAULT)
+                .build()
+            val updatedItem = currentItem.buildUpon()
+                .setSubtitleConfigurations(listOf(subtitle))
+                .build()
+
+            exo.replaceMediaItem(itemIndex, updatedItem)
+            exo.seekTo(itemIndex, position)
+            exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                .build()
+            exo.playWhenReady = shouldPlay
+            Toast.makeText(this, "Subtitle loaded", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Couldn't load subtitle; video continues", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun selectExternalSubtitleTrack(exo: ExoPlayer) {
+        try {
+            exo.currentTracks.groups.forEach { group ->
+                if (group.type == C.TRACK_TYPE_TEXT) {
+                    for (i in 0 until group.length) {
+                        if (group.getTrackFormat(i).id == "clean-player-external-subtitle" && !group.isTrackSelected(i)) {
+                            exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                                .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                                .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                                .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(i)))
+                                .build()
+                            return
+                        }
+                    }
+                }
+            }
+        } catch (_: Exception) {
+            Toast.makeText(this, "Couldn't activate subtitle; video continues", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun showAspectRatioMenu(anchor: View) {
