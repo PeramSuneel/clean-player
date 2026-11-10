@@ -184,6 +184,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showHome(filter: String = "") {
+        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        controlsHideRunnable = null
         cancelOnlineWork()
         showingPlayer = false
         currentFolder = null
@@ -357,7 +359,12 @@ class MainActivity : AppCompatActivity() {
         exo.setMediaItems(queue.map { MediaItem.fromUri(it.uri) }, index, 0L)
         exo.prepare(); exo.playWhenReady = true
         exo.addListener(object : Player.Listener {
-            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) { currentIndex = exo.currentMediaItemIndex; updatePlayerTitle() }
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                currentIndex = exo.currentMediaItemIndex
+                currentPlayerTitle = queue.getOrNull(currentIndex)?.name ?: currentPlayerTitle
+                updatePlayerTitle()
+            }
+            override fun onIsPlayingChanged(isPlaying: Boolean) { updatePlayerTitle() }
         })
         showPlayer()
     }
@@ -379,6 +386,7 @@ class MainActivity : AppCompatActivity() {
         val pv = PlayerView(this).apply {
             useController = false
             setShowBuffering(PlayerView.SHOW_BUFFERING_WHEN_PLAYING)
+            resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
             player = this@MainActivity.player
             setBackgroundColor(0xFF000000.toInt())
             keepScreenOn = true
@@ -455,7 +463,10 @@ class MainActivity : AppCompatActivity() {
                         } else if (gestureMode == 2) {
                             hideSeekFeedback()
                         }
-                        if (gestureMode != 0) showPlayerControls()
+                        if (gestureMode != 0) {
+                            showPlayerControls()
+                            scheduleControlsHide()
+                        }
                         gestureMode = 0
                     }
                 }
