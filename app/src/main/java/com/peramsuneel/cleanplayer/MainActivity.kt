@@ -51,6 +51,7 @@ import com.peramsuneel.cleanplayer.online.OnlineSearchResult
 private const val HOME_BRAND_LOGO_ENABLED = true
 private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 private const val MUTE_BUTTON_ENABLED = true
+private const val REPLAY_AT_END_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -519,7 +520,7 @@ class MainActivity : AppCompatActivity() {
         currentPlayerTitle = queue.getOrNull(index)?.name ?: "Now playing"
         rotationManuallySelected = false
         playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        val exo = ExoPlayer.Builder(this).build()
+        val exo = buildPlayerSafely()
         player?.release(); player = exo
         exo.setMediaItems(queue.map { MediaItem.fromUri(it.uri) }, index, 0L)
         exo.prepare(); exo.playWhenReady = true
@@ -530,6 +531,14 @@ class MainActivity : AppCompatActivity() {
                 updatePlayerTitle()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) { updatePlayerTitle() }
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (REPLAY_AT_END_ENABLED && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
+                    handlePlaybackEnded(exo)
+                }
+            }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (REPLAY_AT_END_ENABLED && playbackState == Player.STATE_ENDED) handlePlaybackEnded(exo)
+            }
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
                 applyVideoDefaultOrientation(videoSize)
             }
@@ -749,7 +758,12 @@ class MainActivity : AppCompatActivity() {
         prev.setOnClickListener { player?.seekToPreviousMediaItem(); scheduleControlsHide() }
         back.setOnClickListener { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() }
         toggle.setOnClickListener {
-            player?.let { if (it.isPlaying) it.pause() else it.play() }
+            player?.let {
+                if (it.isPlaying) it.pause() else {
+                    if (REPLAY_AT_END_ENABLED && playbackIsAtEnd(it)) it.seekTo(0L)
+                    it.play()
+                }
+            }
             updatePlayerTitle()
             scheduleControlsHide()
         }
@@ -890,6 +904,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun scheduleControlsHide() {
         controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        if (REPLAY_AT_END_ENABLED && player?.let { playbackIsAtEnd(it) } == true) {
+            showPlayerControls()
+            return
+        }
         val hide = Runnable { hidePlayerControls() }
         controlsHideRunnable = hide
         onlineHandler.postDelayed(hide, 3_000L)
@@ -1132,10 +1150,18 @@ class MainActivity : AppCompatActivity() {
         currentIndex = 0
         rotationManuallySelected = false
         playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        val exo = ExoPlayer.Builder(this).build()
+        val exo = buildPlayerSafely()
         player?.release()
         player = exo
         exo.addListener(object : Player.Listener {
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                if (REPLAY_AT_END_ENABLED && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
+                    handlePlaybackEnded(exo)
+                }
+            }
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (REPLAY_AT_END_ENABLED && playbackState == Player.STATE_ENDED) handlePlaybackEnded(exo)
+            }
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
                 applyVideoDefaultOrientation(videoSize)
             }
@@ -1184,7 +1210,36 @@ class MainActivity : AppCompatActivity() {
 
     private fun updatePlayerTitle() {
         playerTitleView?.text = currentPlayerTitle
-        playPauseButton?.text = if (player?.isPlaying == true) "Ⅱ" else "▶"
+        val activePlayer = player
+        playPauseButton?.text = when {
+            activePlayer?.isPlaying == true -> "Ⅱ"
+            REPLAY_AT_END_ENABLED && activePlayer != null && playbackIsAtEnd(activePlayer) -> "↻"
+            else -> "▶"
+        }
+    }
+
+    private fun buildPlayerSafely(): ExoPlayer = try {
+        if (REPLAY_AT_END_ENABLED) ExoPlayer.Builder(this).setPauseAtEndOfMediaItems(true).build()
+        else ExoPlayer.Builder(this).build()
+    } catch (_: Exception) {
+        ExoPlayer.Builder(this).build()
+    }
+
+    private fun playbackIsAtEnd(exo: ExoPlayer): Boolean = try {
+        val duration = exo.duration
+        duration > 0L && exo.currentPosition >= duration - 250L && !exo.isPlaying
+    } catch (_: Exception) { false }
+
+    private fun handlePlaybackEnded(exo: ExoPlayer) {
+        try {
+            if (player !== exo || !REPLAY_AT_END_ENABLED) return
+            showPlayerControls()
+            updatePlayerTitle()
+            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            controlsHideRunnable = null
+        } catch (_: Exception) {
+            // Playback remains available if end-of-item UI updates fail.
+        }
     }
 
     private fun button(caption: String, primary: Boolean): Button = Button(this).apply {
