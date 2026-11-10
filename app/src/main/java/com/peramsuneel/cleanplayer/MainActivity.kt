@@ -63,6 +63,7 @@ private const val MUTE_BUTTON_ENABLED = true
 private const val REPLAY_AT_END_ENABLED = true
 private const val PLAYER_OPTIONS_ENABLED = true
 private const val PLAYER_MENU_FIX_ENABLED = true
+private const val SEEK_PREVIEW_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 
@@ -72,7 +73,8 @@ private class PlayerSeekBar(
     context: Context,
     private val formatTime: (Long) -> String,
     private val onSeek: (Long) -> Unit,
-    private val onInteraction: (Boolean) -> Unit
+    private val onInteraction: (Boolean) -> Unit,
+    private val onPreview: (Long, Float, Boolean) -> Unit
 ) : View(context) {
     private val density = resources.displayMetrics.density
     private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -143,7 +145,7 @@ private class PlayerSeekBar(
             val thumbX = positionFor(if (dragging) targetMs else positionMs)
             canvas.drawLine(left, y, thumbX, y, progressPaint)
             canvas.drawCircle(thumbX, y, (if (dragging) 7f else 5f) * density, thumbPaint)
-            if (dragging) {
+            if (dragging && !SEEK_PREVIEW_ENABLED) {
                 val value = formatTime(targetMs)
                 val bubbleWidth = textPaint.measureText(value) + 20f * density
                 val bubbleHeight = 25f * density
@@ -161,6 +163,9 @@ private class PlayerSeekBar(
         val ratio = ((x - sideInset) / trackWidth()).coerceIn(0f, 1f)
         targetMs = (durationMs * ratio).toLong()
         invalidate()
+        if (SEEK_PREVIEW_ENABLED) {
+            try { onPreview(targetMs, positionFor(targetMs), dragging) } catch (_: Exception) { }
+        }
     }
 
     override fun onTouchEvent(event: MotionEvent): Boolean {
@@ -183,6 +188,9 @@ private class PlayerSeekBar(
                     onSeek(targetMs)
                     dragging = false
                     invalidate()
+                    if (SEEK_PREVIEW_ENABLED) {
+                        try { onPreview(targetMs, positionFor(targetMs), false) } catch (_: Exception) { }
+                    }
                     performClick()
                     onInteraction(false)
                 }
@@ -192,6 +200,9 @@ private class PlayerSeekBar(
                 if (dragging) {
                     dragging = false
                     invalidate()
+                    if (SEEK_PREVIEW_ENABLED) {
+                        try { onPreview(targetMs, positionFor(targetMs), false) } catch (_: Exception) { }
+                    }
                     onInteraction(false)
                 }
                 return true
@@ -636,7 +647,13 @@ class MainActivity : AppCompatActivity() {
                             val duration = player?.duration?.takeIf { it > 0 } ?: Long.MAX_VALUE
                             dragTargetPosition = (dragStartPosition + delta).coerceIn(0L, duration)
                             val seconds = delta / 1000L
-                            playerSeekIndicator?.text = "${formatDuration(dragTargetPosition)}   ${if (seconds >= 0) "+" else ""}${seconds}s"
+                            if (SEEK_PREVIEW_ENABLED) {
+                                playerSeekIndicator?.text = formatPlayerTime(dragTargetPosition)
+                                playerSeekIndicator?.textSize = 28f
+                            } else {
+                                playerSeekIndicator?.text = "${formatDuration(dragTargetPosition)}   ${if (seconds >= 0) "+" else ""}${seconds}s"
+                                playerSeekIndicator?.textSize = 14f
+                            }
                             playerSeekIndicator?.visibility = View.VISIBLE
                         } else if (gestureMode == 2) {
                             val fraction = (-dy / pv.height.coerceAtLeast(1).toFloat()).coerceIn(-1f, 1f)
@@ -665,10 +682,11 @@ class MainActivity : AppCompatActivity() {
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         if (gestureMode == 1 && event.actionMasked == MotionEvent.ACTION_UP) {
                             player?.seekTo(dragTargetPosition)
-                            showSeekFeedback(playerSeekIndicator?.text?.toString().orEmpty())
+                            showSeekFeedback(formatPlayerTime(dragTargetPosition), 300L)
                         } else if (gestureMode == 2) {
                             hideSeekFeedback()
                         }
+                        if (gestureMode != 1) playerSeekIndicator?.textSize = 14f
                         if (gestureMode != 0) {
                             showPlayerControls()
                             scheduleControlsHide()
@@ -766,7 +784,8 @@ class MainActivity : AppCompatActivity() {
                 } else {
                     scheduleControlsHide()
                 }
-            }
+            },
+            { targetMs, thumbX, active -> updateSeekPreview(targetMs, thumbX, active) }
         )
         playerSeekBar = seekBar
         bottomPanel.addView(seekBar, LinearLayout.LayoutParams(-1, dp(52)))
@@ -814,6 +833,19 @@ class MainActivity : AppCompatActivity() {
         bottomPanel.addView(controls, LinearLayout.LayoutParams(-1, -2))
         playerControls = bottomPanel
         pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+
+        val seekPreview = label("", 13, 0xFFFFFFFF.toInt(), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            background = GradientDrawable().apply {
+                setColor(0xE6000000.toInt())
+                cornerRadius = dp(8).toFloat()
+            }
+            visibility = View.GONE
+            elevation = dp(8).toFloat()
+        }
+        pv.addView(seekPreview, FrameLayout.LayoutParams(-2, dp(30)))
+        seekPreview.tag = "seek-preview"
 
         val indicator = label("", 14, 0xFFFFFFFF.toInt(), true).apply {
             gravity = Gravity.CENTER
@@ -1134,11 +1166,42 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSeekFeedback(message: String) {
+    private fun updateSeekPreview(targetMs: Long, thumbX: Float, active: Boolean) {
+        try {
+            val pv = playerView ?: return
+            val preview = (0 until pv.childCount).mapNotNull { pv.getChildAt(it) as? TextView }
+                .firstOrNull { it.tag == "seek-preview" } ?: return
+            if (active) {
+                preview.animate().cancel()
+                preview.text = formatPlayerTime(targetMs)
+                preview.alpha = 1f
+                preview.measure(
+                    View.MeasureSpec.makeMeasureSpec(pv.width, View.MeasureSpec.AT_MOST),
+                    View.MeasureSpec.makeMeasureSpec(dp(30), View.MeasureSpec.AT_MOST)
+                )
+                val seek = playerSeekBar ?: return
+                val x = seek.x + thumbX - preview.measuredWidth / 2f
+                preview.x = x.coerceIn(0f, (pv.width - preview.measuredWidth).coerceAtLeast(0).toFloat())
+                val seekTop = (playerControls?.y ?: 0f) + seek.y
+                preview.y = (seekTop - dp(56) - dp(30)).coerceAtLeast(dp(4).toFloat())
+                preview.visibility = View.VISIBLE
+            } else if (preview.visibility == View.VISIBLE) {
+                preview.animate().cancel()
+                preview.animate().alpha(0f).setDuration(300L).withEndAction {
+                    preview.visibility = View.GONE
+                    preview.alpha = 1f
+                }.start()
+            }
+        } catch (_: Exception) {
+            // Preview rendering must never affect seeking or playback.
+        }
+    }
+
+    private fun showSeekFeedback(message: String, fadeAfterMs: Long = 850L) {
         if (message.isBlank()) return
         playerSeekIndicator?.text = message
         playerSeekIndicator?.visibility = View.VISIBLE
-        onlineHandler.postDelayed({ hideSeekFeedback() }, 850L)
+        onlineHandler.postDelayed({ hideSeekFeedback() }, fadeAfterMs)
     }
 
     private fun hideSeekFeedback() {
