@@ -2,6 +2,7 @@ name: Build Clean Player APK
 on:
   workflow_dispatch:
   push:
+    branches: ['**']
     paths:
       - 'app/**'
       - '*.gradle.kts'
