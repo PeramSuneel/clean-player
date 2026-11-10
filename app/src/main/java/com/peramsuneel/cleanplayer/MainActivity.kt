@@ -79,11 +79,11 @@ private const val LOCAL_SUBTITLES_ENABLED = false
 private const val PLAYER_TOP_LEFT_ENABLED = true
 private const val AUDIO_TRACK_SESSION_MEMORY_ENABLED = true
 private const val SPEED_LABEL_LIVE_ENABLED = true
-private const val SCREENSHOT_ENABLED = true
-private const val REPEAT_ONE_ENABLED = true
+private const val SCREENSHOT_ENABLED = false
+private const val REPEAT_ONE_ENABLED = false
 private const val AUDIO_ONLY_ENABLED = true
 private const val LIVE_SCRUBBING_ENABLED = true
-private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = true
+private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = false
 private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 
