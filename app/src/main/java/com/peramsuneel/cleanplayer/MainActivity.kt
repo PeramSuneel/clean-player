@@ -16,6 +16,7 @@ import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.GestureDetector
+import android.view.LayoutInflater
 import android.content.res.Configuration
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
@@ -928,7 +929,8 @@ class MainActivity : AppCompatActivity() {
             contentDescription = "Expand playback options"
             setOnClickListener {
                 try {
-                    if (!PLAYER_TOP_OPTIONS_LAYOUT_ENABLED) return@setOnClickListener\n                    val expanded = expandedOptions.visibility != View.VISIBLE
+                    if (!PLAYER_TOP_OPTIONS_LAYOUT_ENABLED) return@setOnClickListener
+                    val expanded = expandedOptions.visibility != View.VISIBLE
                     expandedOptions.visibility = if (expanded) View.VISIBLE else View.GONE
                     rotation = if (expanded) 90f else 0f
                     contentDescription = if (expanded) "Collapse playback options" else "Expand playback options"
@@ -1096,7 +1098,8 @@ class MainActivity : AppCompatActivity() {
         ViewCompat.setOnApplyWindowInsetsListener(pv) { _, insets ->
             val cutoutTop = insets.getInsets(WindowInsetsCompat.Type.displayCutout()).top
             val gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom
-            val statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top\n            top.setPadding(0, maxOf(cutoutTop, statusTop), 0, 0)
+            val statusTop = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+            top.setPadding(0, maxOf(cutoutTop, statusTop), 0, 0)
             toolbar.setPadding(dp(8), dp(6), dp(8), dp(2))
             quickOptions.setPadding(dp(12), dp(1), dp(12), dp(7))
             controls.setPadding(dp(8), dp(7), dp(8), dp(12))
@@ -1607,7 +1610,13 @@ class MainActivity : AppCompatActivity() {
             content.alpha = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0f else 1f
             content.scaleX = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
             content.scaleY = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
-            val popupWidth = minOf(dp(280), resources.displayMetrics.widthPixels - dp(24))\n            popup.width = popupWidth\n            val location = IntArray(2)\n            anchor.getLocationOnScreen(location)\n            val minOffset = dp(12) - location[0]\n            val maxOffset = resources.displayMetrics.widthPixels - dp(12) - popupWidth - location[0]\n            popup.showAsDropDown(anchor, minOf(maxOffset, maxOf(minOffset, 0)), dp(4), Gravity.START)
+            val popupWidth = minOf(dp(280), resources.displayMetrics.widthPixels - dp(24))
+            popup.width = popupWidth
+            val location = IntArray(2)
+            anchor.getLocationOnScreen(location)
+            val minOffset = dp(12) - location[0]
+            val maxOffset = resources.displayMetrics.widthPixels - dp(12) - popupWidth - location[0]
+            popup.showAsDropDown(anchor, minOf(maxOffset, maxOf(minOffset, 0)), dp(4), Gravity.START)
             if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
                 content.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150L).start()
             }
