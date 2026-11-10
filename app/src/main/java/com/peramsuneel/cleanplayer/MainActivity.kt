@@ -36,6 +36,12 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import android.content.pm.ActivityInfo
 import android.widget.FrameLayout
+import android.graphics.Color
+import android.widget.PopupWindow
+import android.graphics.Typeface
+import androidx.media3.common.C
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.Tracks
 import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -52,6 +58,7 @@ private const val HOME_BRAND_LOGO_ENABLED = true
 private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 private const val MUTE_BUTTON_ENABLED = true
 private const val REPLAY_AT_END_ENABLED = true
+private const val PLAYER_OPTIONS_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -255,6 +262,8 @@ class MainActivity : AppCompatActivity() {
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     private var rotationManuallySelected = false
     private var rotationButton: Button? = null
+    private var playerOptionsPopup: PopupWindow? = null
+    private var playerOptionsOpen = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -711,6 +720,19 @@ class MainActivity : AppCompatActivity() {
         }
         rotationButton = rotate
         top.addView(rotate, LinearLayout.LayoutParams(dp(44), dp(44)))
+        if (PLAYER_OPTIONS_ENABLED) {
+            val more = playerOverlayButton("⋮", 24).apply {
+                contentDescription = "More playback options"
+                setOnClickListener {
+                    try {
+                        showPlayerOptionsMenu(this)
+                    } catch (_: Exception) {
+                        Toast.makeText(this@MainActivity, "Playback options unavailable", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            top.addView(more, LinearLayout.LayoutParams(dp(44), dp(44)))
+        }
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
@@ -811,6 +833,179 @@ class MainActivity : AppCompatActivity() {
      * Main, search and folder surfaces draw edge-to-edge, but keep interactive content
      * inside the status bar, navigation bar and display cutout safe areas.
      */
+    private fun showPlayerOptionsMenu(anchor: View) {
+        try {
+            val entries = listOf("Audio", "Subtitles", "Aspect ratio")
+            showPlayerPopup(anchor, entries, null) { choice ->
+                when (choice) {
+                    "Audio" -> showAudioTrackMenu(anchor)
+                    "Subtitles" -> showSubtitleTrackMenu(anchor)
+                    "Aspect ratio" -> showAspectRatioMenu(anchor)
+                }
+            }
+        } catch (_: Exception) {
+            playerOptionsOpen = false
+        }
+    }
+
+    private fun showAudioTrackMenu(anchor: View) {
+        val exo = player ?: return
+        val options = mutableListOf<Pair<String, (() -> Unit)?>>()
+        try {
+            exo.currentTracks.groups.forEach { group ->
+                if (group.type == C.TRACK_TYPE_AUDIO) {
+                    for (i in 0 until group.length) {
+                        val format = group.getTrackFormat(i)
+                        val language = format.language?.takeIf { it.isNotBlank() } ?: "Unknown language"
+                        val codec = format.sampleMimeType?.substringAfter('/') ?: format.codecs ?: "Audio"
+                        val selected = group.isTrackSelected(i)
+                        val title = "${if (selected) "✓ " else ""}$language · $codec"
+                        options.add(title to {
+                            try {
+                                exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                                    .clearOverridesOfType(C.TRACK_TYPE_AUDIO)
+                                    .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(i)))
+                                    .build()
+                            } catch (_: Exception) { }
+                        })
+                    }
+                }
+            }
+            if (options.isEmpty()) options.add("No selectable audio tracks" to null)
+        } catch (_: Exception) {
+            options.clear()
+            options.add("Audio tracks unavailable" to null)
+        }
+        showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
+    }
+
+    private fun showSubtitleTrackMenu(anchor: View) {
+        val exo = player ?: return
+        val options = mutableListOf<Pair<String, (() -> Unit)?>>()
+        options.add("Off" to {
+            try {
+                exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                    .build()
+            } catch (_: Exception) { }
+        })
+        try {
+            exo.currentTracks.groups.forEach { group ->
+                if (group.type == C.TRACK_TYPE_TEXT) {
+                    for (i in 0 until group.length) {
+                        val format = group.getTrackFormat(i)
+                        val language = format.language?.takeIf { it.isNotBlank() } ?: "Unknown language"
+                        val codec = format.sampleMimeType?.substringAfter('/') ?: "Subtitle"
+                        val selected = group.isTrackSelected(i)
+                        val title = "${if (selected) "✓ " else ""}$language · $codec"
+                        options.add(title to {
+                            try {
+                                exo.trackSelectionParameters = exo.trackSelectionParameters.buildUpon()
+                                    .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, false)
+                                    .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+                                    .setOverrideForType(TrackSelectionOverride(group.mediaTrackGroup, listOf(i)))
+                                    .build()
+                            } catch (_: Exception) { }
+                        })
+                    }
+                }
+            }
+        } catch (_: Exception) { }
+        options.add("Load from storage" to {
+            Toast.makeText(this, "Local subtitle loading is coming in the next stage", Toast.LENGTH_SHORT).show()
+        })
+        options.add("Search online" to {
+            Toast.makeText(this, "Online subtitle search is coming in a later stage", Toast.LENGTH_SHORT).show()
+        })
+        showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
+    }
+
+    private fun showAspectRatioMenu(anchor: View) {
+        val choices = listOf("Fit", "Fill", "Zoom", "16:9", "4:3")
+        val prefs = getSharedPreferences("clean_player_aspect_ratio", MODE_PRIVATE)
+        val key = queue.getOrNull(currentIndex)?.uri?.toString() ?: "default"
+        val current = prefs.getString(key, "Fit") ?: "Fit"
+        val rows = choices.map { label ->
+            "${if (label == current) "✓ " else ""}$label" to {
+                try {
+                    val mode = when (label) {
+                        "Fill" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
+                        "Zoom" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
+                        else -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+                    }
+                    playerView?.resizeMode = mode
+                    if (label == "16:9" || label == "4:3") {
+                        val ratio = if (label == "16:9") 16f / 9f else 4f / 3f
+                        playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.setAspectRatio(ratio)
+                    } else {
+                        playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)?.setAspectRatio(0f)
+                    }
+                    prefs.edit().putString(key, label).apply()
+                } catch (_: Exception) { }
+            }
+        }
+        showPlayerPopup(anchor, rows.map { it.first }, rows.map { it.second }) { }
+    }
+
+    private fun showPlayerPopup(
+        anchor: View,
+        labels: List<String>,
+        actions: List<(() -> Unit)?>?,
+        onSelect: (String) -> Unit
+    ) {
+        try {
+            playerOptionsPopup?.dismiss()
+            val content = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(8), dp(6), dp(8), dp(6))
+                background = GradientDrawable().apply {
+                    setColor(0xB3101820.toInt())
+                    cornerRadius = dp(14).toFloat()
+                    setStroke(dp(1), 0x55FFFFFF)
+                }
+            }
+            labels.forEachIndexed { index, labelText ->
+                val item = TextView(this).apply {
+                    text = labelText
+                    textSize = 14f
+                    setTextColor(Color.WHITE)
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(14), dp(10), dp(18), dp(10))
+                    minHeight = dp(44)
+                    isClickable = true
+                    setOnClickListener {
+                        try {
+                            actions?.getOrNull(index)?.invoke()
+                            onSelect(labelText)
+                        } catch (_: Exception) {
+                            Toast.makeText(this@MainActivity, "Unable to apply this option", Toast.LENGTH_SHORT).show()
+                        }
+                        playerOptionsPopup?.dismiss()
+                    }
+                }
+                content.addView(item, LinearLayout.LayoutParams(-1, -2))
+            }
+            val popup = PopupWindow(content, dp(260), -2, true).apply {
+                isOutsideTouchable = true
+                setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
+                elevation = dp(12).toFloat()
+                setOnDismissListener {
+                    playerOptionsOpen = false
+                    playerOptionsPopup = null
+                    scheduleControlsHide()
+                }
+            }
+            playerOptionsPopup = popup
+            playerOptionsOpen = true
+            popup.showAsDropDown(anchor, -dp(210), dp(4), Gravity.END)
+            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        } catch (_: Exception) {
+            playerOptionsOpen = false
+            playerOptionsPopup = null
+        }
+    }
+
     private fun applyScreenInsets(view: View) {
         ViewCompat.setOnApplyWindowInsetsListener(view) { target, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
@@ -903,6 +1098,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun scheduleControlsHide() {
+        if (playerOptionsOpen) return
         controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
         if (REPLAY_AT_END_ENABLED && player?.let { playbackIsAtEnd(it) } == true) {
             showPlayerControls()
