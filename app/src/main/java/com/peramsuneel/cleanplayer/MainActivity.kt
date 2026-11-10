@@ -78,6 +78,7 @@ private const val PLAYER_TOP_LEFT_ENABLED = true
 private const val AUDIO_TRACK_SESSION_MEMORY_ENABLED = true
 private const val SPEED_LABEL_LIVE_ENABLED = true
 private const val SCREENSHOT_ENABLED = true
+private const val REPEAT_ONE_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -293,6 +294,7 @@ class MainActivity : AppCompatActivity() {
     private var lastAudibleVolume = 0
     private var preferredAudioLanguage: String? = null
     private var playerMuteButton: ImageButton? = null
+    private var repeatButton: ImageButton? = null
     private var playerSpeedLabel: TextView? = null
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -1106,6 +1108,22 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "Subtitle loaded", Toast.LENGTH_SHORT).show()
         } catch (_: Exception) {
             Toast.makeText(this, "Couldn't load subtitle; video continues", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun toggleRepeatOne() {
+        if (!REPEAT_ONE_ENABLED) return
+        try {
+            val exo = player ?: return
+            val repeatOne = exo.repeatMode != Player.REPEAT_MODE_ONE
+            exo.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
+            repeatButton?.contentDescription = if (repeatOne) "Turn repeat one off" else "Repeat current video"
+            repeatButton?.imageTintList = android.content.res.ColorStateList.valueOf(
+                if (repeatOne) accent else ContextCompat.getColor(this, R.color.player_primary)
+            )
+            Toast.makeText(this, if (repeatOne) "Repeat one on" else "Repeat off", Toast.LENGTH_SHORT).show()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Unable to change repeat mode", Toast.LENGTH_SHORT).show()
         }
     }
 
