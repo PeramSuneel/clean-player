@@ -65,6 +65,7 @@ private const val PLAYER_OPTIONS_ENABLED = true
 private const val PLAYER_MENU_FIX_ENABLED = true
 private const val SEEK_PREVIEW_ENABLED = true
 private const val PLAYER_VECTOR_ICONS_ENABLED = true
+private const val PLAYER_PALETTE_ENABLED = true
 private const val SUBTITLE_FILE_ENABLED = true
 private const val LOCAL_SUBTITLES_ENABLED = false
 
@@ -79,22 +80,22 @@ private class PlayerSeekBar(
 ) : View(context) {
     private val density = resources.displayMetrics.density
     private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0x66FFFFFF
+        color = ContextCompat.getColor(context, R.color.player_divider)
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val bufferedPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0x99FFFFFF.toInt()
+        color = ContextCompat.getColor(context, R.color.player_buffered)
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val progressPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt()
+        color = ContextCompat.getColor(context, R.color.player_accent)
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val thumbPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xFFFFFFFF.toInt()
+        color = ContextCompat.getColor(context, R.color.player_primary)
         style = android.graphics.Paint.Style.FILL
     }
     private val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -102,7 +103,7 @@ private class PlayerSeekBar(
         textSize = 12f * density
     }
     private val bubblePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = 0xDD000000.toInt()
+        color = 0xBF000000.toInt()
         style = android.graphics.Paint.Style.FILL
     }
     private var durationMs = 0L
@@ -221,20 +222,23 @@ private class PlayerSeekBar(
 class MainActivity : AppCompatActivity() {
     private var isDark = true
     private var isGrid = true
-    private var bg = 0xFF101820.toInt()
-    private var panel = 0xFF1B2832.toInt()
-    private var accent = 0xFFB7D5A8.toInt()
-    private var text = 0xFFF3F5F2.toInt()
-    private var muted = 0xFF9BA69D.toInt()
+    private var bg = 0xFF000000.toInt()
+    private var panel = 0xFF121212.toInt()
+    private var accent = 0xFF2F80ED.toInt()
+    private var text = 0xFFFFFFFF.toInt()
+    private var muted = 0xFF8A8F98.toInt()
     private var currentFolder: String? = null
 
     private fun applyPalette() {
-        if (isDark) {
-            bg = 0xFF101820.toInt(); panel = 0xFF1B2832.toInt()
-            accent = 0xFFB7D5A8.toInt(); text = 0xFFF3F5F2.toInt(); muted = 0xFF9BA69D.toInt()
-        } else {
-            bg = 0xFFF4F6F3.toInt(); panel = 0xFFFFFFFF.toInt()
-            accent = 0xFF315D48.toInt(); text = 0xFF1B2922.toInt(); muted = 0xFF65736A.toInt()
+        try {
+            bg = ContextCompat.getColor(this, R.color.player_background)
+            panel = ContextCompat.getColor(this, R.color.player_surface)
+            accent = ContextCompat.getColor(this, R.color.player_accent)
+            text = ContextCompat.getColor(this, R.color.player_primary)
+            muted = ContextCompat.getColor(this, R.color.player_secondary)
+        } catch (_: Exception) {
+            bg = 0xFF000000.toInt(); panel = 0xFF121212.toInt()
+            accent = 0xFF2F80ED.toInt(); text = 0xFFFFFFFF.toInt(); muted = 0xFF8A8F98.toInt()
         }
     }
     private val files = mutableListOf<MediaFile>()
@@ -771,7 +775,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0x00101820, 0xDD000000.toInt())
+                intArrayOf(0x00000000, 0xBF000000.toInt())
             )
         }
         val seekBar = PlayerSeekBar(
@@ -839,7 +843,7 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(dp(10), dp(5), dp(10), dp(5))
             background = GradientDrawable().apply {
-                setColor(0xE6000000.toInt())
+                setColor(0xBF000000.toInt())
                 cornerRadius = dp(8).toFloat()
             }
             visibility = View.GONE
@@ -852,7 +856,7 @@ class MainActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(dp(16), dp(10), dp(16), dp(10))
             background = GradientDrawable().apply {
-                setColor(0xB8000000.toInt())
+                setColor(0xBF000000.toInt())
                 cornerRadius = dp(24).toFloat()
             }
             visibility = View.GONE
@@ -1084,9 +1088,9 @@ class MainActivity : AppCompatActivity() {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(8), dp(6), dp(8), dp(6))
                 background = GradientDrawable().apply {
-                    setColor(0xB3101820.toInt())
+                    setColor(0xBF000000.toInt())
                     cornerRadius = dp(14).toFloat()
-                    setStroke(dp(1), 0x55FFFFFF)
+                    setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.player_divider))
                 }
             }
             labels.forEachIndexed { index, labelText ->
@@ -1094,7 +1098,7 @@ class MainActivity : AppCompatActivity() {
                     val selected = labelText.startsWith("✓ ")
                     val displayText = labelText.removePrefix("✓ ")
                     text = if (selected) android.text.SpannableString("✓  $displayText").apply {
-                        setSpan(android.text.style.ForegroundColorSpan(0xFF2F80ED.toInt()), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        setSpan(android.text.style.ForegroundColorSpan(ContextCompat.getColor(this@MainActivity, R.color.player_accent)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     } else displayText
                     textSize = 14f
                     setTextColor(Color.WHITE)
@@ -1476,7 +1480,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 val thumbnail = ImageView(this).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    setBackgroundColor(0xFF263238.toInt())
+                    setBackgroundColor(panel)
                     contentDescription = "Thumbnail for ${result.title}"
                 }
                 row.addView(thumbnail, LinearLayout.LayoutParams(dp(112), dp(72)).apply { marginEnd = dp(12) })
@@ -1619,7 +1623,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun button(caption: String, primary: Boolean): Button = Button(this).apply {
         text = caption; textSize = if (primary) 18f else 13f; isAllCaps = false
-        setTextColor(if (primary) 0xFF182116.toInt() else this@MainActivity.text)
+        setTextColor(this@MainActivity.text)
         setBackgroundColor(if (primary) accent else panel)
         minHeight = 0; minimumHeight = 0; minWidth = 0; minimumWidth = 0
         stateListAnimator = null
