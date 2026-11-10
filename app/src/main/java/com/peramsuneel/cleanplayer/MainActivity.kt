@@ -83,6 +83,7 @@ private const val SCREENSHOT_ENABLED = true
 private const val REPEAT_ONE_ENABLED = true
 private const val AUDIO_ONLY_ENABLED = true
 private const val LIVE_SCRUBBING_ENABLED = true
+private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -844,6 +845,7 @@ class MainActivity : AppCompatActivity() {
         }
         rotationButton = rotate
         quickOptions.addView(rotate, LinearLayout.LayoutParams(dp(44), dp(42)))
+        if (OPTIONS_ROW_MEDIA_ACTIONS_ENABLED) {
         val screenshot = playerOverlayButton(android.R.drawable.ic_menu_camera).apply {
             contentDescription = "Save screenshot"
             setOnClickListener { capturePlayerScreenshot(); showPlayerControls(); scheduleControlsHide() }
@@ -860,6 +862,7 @@ class MainActivity : AppCompatActivity() {
             setOnClickListener { toggleAudioOnly(); showPlayerControls(); scheduleControlsHide() }
         }
         quickOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(44), dp(42)))
+        }
         top.addView(quickOptions, LinearLayout.LayoutParams(-1, -2))
         playerTopBar = top
         pv.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
