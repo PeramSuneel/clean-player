@@ -1355,20 +1355,21 @@ class MainActivity : AppCompatActivity() {
             },
             onLock = { button ->
                 try {
-                    val result = overlayResult ?: return@NewPlayerOverlay
-                    playerControlsLocked = !playerControlsLocked
-                    button.setImageResource(if (playerControlsLocked) R.drawable.ic_v3_lock_open else R.drawable.ic_v3_lock)
-                    if (playerControlsLocked) {
-                        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
-                        result.topLayer.visibility = View.GONE
-                        for (index in 0 until result.bottomLayer.childCount) {
-                            val child = result.bottomLayer.getChildAt(index)
-                            if (child !== button && child !is androidx.constraintlayout.widget.Guideline) child.visibility = View.GONE
+                    overlayResult?.let { result ->
+                        playerControlsLocked = !playerControlsLocked
+                        button.setImageResource(if (playerControlsLocked) R.drawable.ic_v3_lock_open else R.drawable.ic_v3_lock)
+                        if (playerControlsLocked) {
+                            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                            result.topLayer.visibility = View.GONE
+                            for (index in 0 until result.bottomLayer.childCount) {
+                                val child = result.bottomLayer.getChildAt(index)
+                                if (child !== button && child !is androidx.constraintlayout.widget.Guideline) child.visibility = View.GONE
+                            }
+                        } else {
+                            result.topLayer.visibility = View.VISIBLE
+                            for (index in 0 until result.bottomLayer.childCount) result.bottomLayer.getChildAt(index).visibility = View.VISIBLE
+                            showPlayerControls(); scheduleControlsHide()
                         }
-                    } else {
-                        result.topLayer.visibility = View.VISIBLE
-                        for (index in 0 until result.bottomLayer.childCount) result.bottomLayer.getChildAt(index).visibility = View.VISIBLE
-                        showPlayerControls(); scheduleControlsHide()
                     }
                 } catch (_: Exception) { }
             },
