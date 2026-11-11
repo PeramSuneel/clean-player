@@ -117,7 +117,7 @@ internal class NewPlayerOverlay(
         }
         top.addView(topShade, ConstraintLayout.LayoutParams(0, dp(80)))
 
-        val back = iconButton(R.drawable.ic_v3_arrow_back, "Back")
+        val back = iconButton(R.drawable.pl_ic_arrow_back, "Back")
         back.id = View.generateViewId()
         top.addView(back, ConstraintLayout.LayoutParams(dp(48), dp(48)))
 
@@ -137,14 +137,14 @@ internal class NewPlayerOverlay(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
         }
-        val aspect = iconButton(R.drawable.ic_v3_aspect_ratio, "Aspect ratio")
+        val aspect = iconButton(R.drawable.pl_ic_aspect_ratio, "Aspect ratio")
         if (PLAYER_TOP_ROW_LAYOUT_ENABLED) {
             try {
                 rightActions.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
                 aspect.setOnClickListener { onAspect(aspect) }
             } catch (_: Exception) { aspect.visibility = View.GONE }
         }
-        val mute = iconButton(R.drawable.ic_v3_volume_up, "Mute")
+        val mute = iconButton(R.drawable.pl_ic_volume_up, "Mute")
         rightActions.addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
         mute.setOnClickListener { onMute(mute) }
         top.addView(rightActions, ConstraintLayout.LayoutParams(-2, dp(48)))
@@ -196,16 +196,16 @@ internal class NewPlayerOverlay(
                 chevronRotation(it, target > 0)
             } catch (_: Exception) { }
         }
-        option(R.drawable.ic_v3_music_note, "Audio track", onAudio)
-        val subtitleButton = option(R.drawable.ic_v3_closed_caption, "Subtitles", onSubtitles)
+        option(R.drawable.pl_ic_audiotrack, "Audio track", onAudio)
+        val subtitleButton = option(R.drawable.pl_ic_closed_caption, "Subtitles", onSubtitles)
         subtitleButton.tag = "player-subtitles-button"
-        option(R.drawable.ic_v3_speed, "Playback speed", onSpeed)
+        option(R.drawable.pl_ic_speed, "Playback speed", onSpeed)
         if (NEW_PLAYER_PIP_ENABLED) {
-            option(R.drawable.ic_v3_picture_in_picture_alt, "Picture in picture", onPictureInPicture)
+            option(R.drawable.pl_ic_picture_in_picture_alt, "Picture in picture", onPictureInPicture)
         }
-        option(R.drawable.ic_v3_playlist_play, "Playlist", onPlaylist)
-        option(R.drawable.ic_v3_flip, "Flip video", onFlip)
-        val repeat = iconButton(R.drawable.ic_v3_repeat, "Repeat")
+        option(R.drawable.pl_ic_playlist_play, "Playlist", onPlaylist)
+        option(R.drawable.pl_ic_flip, "Flip video", onFlip)
+        val repeat = iconButton(R.drawable.pl_ic_repeat, "Repeat")
         options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)))
         repeat.setOnClickListener { onRepeat(repeat) }
 
@@ -239,22 +239,22 @@ internal class NewPlayerOverlay(
         seekView.id = View.generateViewId()
         bottom.addView(seekView, ConstraintLayout.LayoutParams(0, if (PLAYER_COMPACT_BOTTOM_ENABLED) dp(48) else dp(52)))
 
-        val lock = iconButton(R.drawable.ic_v3_lock, "Lock controls")
-        val rotate = iconButton(R.drawable.ic_v3_screen_rotation, "Rotate screen")
+        val lock = iconButton(R.drawable.pl_ic_lock, "Lock controls")
+        val rotate = iconButton(R.drawable.pl_ic_screen_rotation, "Rotate screen")
         val group = LinearLayout(context).apply {
             id = View.generateViewId()
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        val back10 = iconButton(R.drawable.ic_v3_fast_rewind, "Back 10 seconds")
-        val previous = iconButton(R.drawable.ic_v3_skip_previous, "Previous")
-        val play = iconButton(R.drawable.ic_v3_pause, "Pause", 48)
+        val back10 = iconButton(R.drawable.pl_ic_fast_rewind, "Back 10 seconds")
+        val previous = iconButton(R.drawable.pl_ic_skip_previous, "Previous")
+        val play = iconButton(R.drawable.pl_ic_pause, "Pause", 48)
         play.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(0xFF2F80ED.toInt())
         }
-        val next = iconButton(R.drawable.ic_v3_skip_next, "Next")
-        val forward10 = iconButton(R.drawable.ic_v3_fast_forward, "Forward 10 seconds")
+        val next = iconButton(R.drawable.pl_ic_skip_next, "Next")
+        val forward10 = iconButton(R.drawable.pl_ic_fast_forward, "Forward 10 seconds")
         val transportButtons = try {
             if (PLAYER_BOTTOM_ROW_LAYOUT_ENABLED) listOf(back10, previous, play, next, forward10)
             else listOf(previous, back10, play, forward10, next)

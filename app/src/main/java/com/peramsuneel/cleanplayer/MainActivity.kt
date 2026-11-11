@@ -829,7 +829,7 @@ class MainActivity : AppCompatActivity() {
                                 val volume = (initialVolume + (fraction * maxVolume).toInt()).coerceIn(0, maxVolume)
                                 audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
                                 if (volume > 0) lastAudibleVolume = volume
-                                playerMuteButton?.setImageResource(if (NEW_PLAYER_UI_ENABLED) { if (volume == 0) R.drawable.ic_v3_volume_off else R.drawable.ic_v3_volume_up } else { if (volume == 0) R.drawable.ic_player_mute else R.drawable.ic_player_volume })
+                                playerMuteButton?.setImageResource(if (NEW_PLAYER_UI_ENABLED) { if (volume == 0) R.drawable.pl_ic_volume_off else R.drawable.pl_ic_volume_up } else { if (volume == 0) R.drawable.ic_player_mute else R.drawable.ic_player_volume })
                                 playerMuteButton?.contentDescription = if (volume == 0) "Unmute audio" else "Mute audio"
                                 if (VOLUME_PERCENT_INDICATOR_ENABLED) {
                                     val volumePercent = if (maxVolume > 0) (volume * 100f / maxVolume).toInt() else 0
@@ -1346,7 +1346,7 @@ class MainActivity : AppCompatActivity() {
                         manager.setStreamVolume(AudioManager.STREAM_MUSIC, restore.coerceAtMost(maximum), 0)
                     }
                     val muted = manager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0
-                    button.setImageResource(if (muted) R.drawable.ic_v3_volume_off else R.drawable.ic_v3_volume_up)
+                    button.setImageResource(if (muted) R.drawable.pl_ic_volume_off else R.drawable.pl_ic_volume_up)
                     button.contentDescription = if (muted) "Unmute audio" else "Mute audio"
                     showPlayerControls(); scheduleControlsHide()
                 } catch (_: Exception) { }
@@ -1401,7 +1401,7 @@ class MainActivity : AppCompatActivity() {
                     val exo = player
                     if (exo != null) {
                         exo.repeatMode = if (exo.repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
-                        button.setImageResource(if (exo.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.ic_v3_repeat_one else R.drawable.ic_v3_repeat)
+                        button.setImageResource(if (exo.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.pl_ic_repeat_one else R.drawable.pl_ic_repeat)
                         button.imageTintList = android.content.res.ColorStateList.valueOf(if (exo.repeatMode == Player.REPEAT_MODE_ONE) 0xFF2F80ED.toInt() else text)
                         showPlayerControls(); scheduleControlsHide()
                     }
@@ -1411,7 +1411,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     overlayResult?.let { result ->
                         playerControlsLocked = !playerControlsLocked
-                        button.setImageResource(if (playerControlsLocked) R.drawable.ic_v3_lock_open else R.drawable.ic_v3_lock)
+                        button.setImageResource(if (playerControlsLocked) R.drawable.pl_ic_lock_open else R.drawable.pl_ic_lock)
                         if (playerControlsLocked) {
                             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
                             result.topLayer.visibility = View.GONE
@@ -1453,7 +1453,7 @@ class MainActivity : AppCompatActivity() {
         playerMuteButton = ui.muteButton
         try {
             val initialVolume = (getSystemService(Context.AUDIO_SERVICE) as AudioManager).getStreamVolume(AudioManager.STREAM_MUSIC)
-            ui.muteButton.setImageResource(if (initialVolume == 0) R.drawable.ic_v3_volume_off else R.drawable.ic_v3_volume_up)
+            ui.muteButton.setImageResource(if (initialVolume == 0) R.drawable.pl_ic_volume_off else R.drawable.pl_ic_volume_up)
         } catch (_: Exception) { }
         rotationButton = ui.rotationButton
         repeatButton = ui.repeatButton
@@ -2620,9 +2620,9 @@ class MainActivity : AppCompatActivity() {
         val activePlayer = player
         try {
             playPauseButton?.setImageResource(when {
-                activePlayer?.isPlaying == true -> if (NEW_PLAYER_UI_ENABLED) R.drawable.ic_v3_pause else R.drawable.ic_player_pause
-                REPLAY_AT_END_ENABLED && activePlayer != null && playbackIsAtEnd(activePlayer) -> if (NEW_PLAYER_UI_ENABLED) R.drawable.ic_v3_replay else R.drawable.ic_player_replay
-                else -> if (NEW_PLAYER_UI_ENABLED) R.drawable.ic_v3_play_arrow else R.drawable.ic_player_play
+                activePlayer?.isPlaying == true -> if (NEW_PLAYER_UI_ENABLED) R.drawable.pl_ic_pause else R.drawable.ic_player_pause
+                REPLAY_AT_END_ENABLED && activePlayer != null && playbackIsAtEnd(activePlayer) -> if (NEW_PLAYER_UI_ENABLED) R.drawable.pl_ic_replay else R.drawable.ic_player_replay
+                else -> if (NEW_PLAYER_UI_ENABLED) R.drawable.pl_ic_play_arrow_arrow else R.drawable.ic_player_play
             })
         } catch (_: Exception) { }
     }
