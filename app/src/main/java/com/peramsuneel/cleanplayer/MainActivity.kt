@@ -12,6 +12,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
+import android.provider.Settings
 import android.provider.OpenableColumns
 import android.view.Gravity
 import android.view.MotionEvent
@@ -62,6 +63,7 @@ import androidx.media3.exoplayer.SeekParameters
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import java.util.Locale
+import kotlin.math.roundToInt
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
@@ -294,7 +296,7 @@ class MainActivity : AppCompatActivity() {
     private var dragStartY = 0f
     private var dragStartPosition = 0L
     private var dragTargetPosition = 0L
-    private var initialBrightness = 0.5f
+    private var initialBrightness = 1
     private var initialVolume = 0
     private var lastAudibleVolume = 0
     private var preferredAudioLanguage: String? = null
@@ -372,6 +374,21 @@ class MainActivity : AppCompatActivity() {
     private fun angularDistance(first: Int, second: Int): Int {
         val difference = kotlin.math.abs(first - second) % 360
         return minOf(difference, 360 - difference)
+    }
+
+    private fun readCurrentBrightnessPercent(): Int {
+        val windowBrightness = window.attributes.screenBrightness
+        val currentFraction = if (windowBrightness >= 0f && windowBrightness <= 1f) {
+            windowBrightness
+        } else {
+            val systemBrightness = try {
+                Settings.System.getInt(contentResolver, Settings.System.SCREEN_BRIGHTNESS)
+            } catch (_: Exception) {
+                1
+            }
+            systemBrightness.coerceIn(0, 255) / 255f
+        }
+        return (currentFraction * 100f).roundToInt().coerceIn(1, 100)
     }
 
     override fun onStart() {
@@ -962,6 +979,7 @@ class MainActivity : AppCompatActivity() {
                         dragStartY = event.y
                         panLastX = event.x
                         panLastY = event.y
+                        initialBrightness = readCurrentBrightnessPercent()
                         dragStartPosition = player?.currentPosition ?: 0L
                         dragTargetPosition = dragStartPosition
                         gestureMode = 0
@@ -979,8 +997,6 @@ class MainActivity : AppCompatActivity() {
                             if (gestureMode == 1) {
                                 dragStartPosition = player?.currentPosition ?: 0L
                             } else {
-                                val attrs = window.attributes
-                                initialBrightness = if (attrs.screenBrightness in 0.01f..1f) attrs.screenBrightness else 0.5f
                                 val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
                                 initialVolume = audio.getStreamVolume(AudioManager.STREAM_MUSIC)
                             }
@@ -1002,9 +1018,9 @@ class MainActivity : AppCompatActivity() {
                         } else if (gestureMode == 2) {
                             val fraction = (-dy / pv.height.coerceAtLeast(1).toFloat()).coerceIn(-1f, 1f)
                             if (dragStartX < pv.width / 2f) {
-                                val brightness = (initialBrightness + fraction).coerceIn(0.05f, 1f)
-                                window.attributes = window.attributes.apply { screenBrightness = brightness }
-                                playerSeekIndicator?.text = "Brightness ${(brightness * 100).toInt()}%"
+                                val brightnessPercent = (initialBrightness + (fraction * 100f).roundToInt()).coerceIn(1, 100)
+                                window.attributes = window.attributes.apply { screenBrightness = brightnessPercent / 100f }
+                                playerSeekIndicator?.text = "Brightness $brightnessPercent%"
                             } else {
                                 val audio = getSystemService(Context.AUDIO_SERVICE) as AudioManager
                                 val maxVolume = audio.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
