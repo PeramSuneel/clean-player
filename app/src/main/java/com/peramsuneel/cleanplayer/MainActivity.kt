@@ -106,7 +106,9 @@ private class PlayerSeekBar(
     private val onSeek: (Long) -> Unit,
     private val onInteraction: (Boolean) -> Unit,
     private val onPreview: (Long, Float, Boolean) -> Unit,
-    private val onLiveSeek: (Long) -> Unit
+    private val onLiveSeek: (Long) -> Unit,
+    private val leftInsetRatio: Float? = null,
+    private val rightInsetRatio: Float? = null
 ) : View(context) {
     private val density = resources.displayMetrics.density
     private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
@@ -141,11 +143,12 @@ private class PlayerSeekBar(
     private var bufferedMs = 0L
     private var dragging = false
     private var targetMs = 0L
-    private val sideInset get() = 58f * density
+    private val leftInset get() = leftInsetRatio?.let { width * it } ?: 58f * density
+    private val rightInset get() = rightInsetRatio?.let { width * it } ?: 58f * density
     private val trackY get() = height / 2f
-    private fun trackWidth() = (width - sideInset * 2f).coerceAtLeast(1f)
+    private fun trackWidth() = (width - leftInset - rightInset).coerceAtLeast(1f)
     private fun fraction(value: Long) = (value.toFloat() / durationMs.coerceAtLeast(1L)).coerceIn(0f, 1f)
-    private fun positionFor(value: Long) = sideInset + trackWidth() * fraction(value)
+    private fun positionFor(value: Long) = leftInset + trackWidth() * fraction(value)
 
     init {
         isClickable = true
@@ -164,8 +167,8 @@ private class PlayerSeekBar(
 
     override fun onDraw(canvas: android.graphics.Canvas) {
         super.onDraw(canvas)
-        val left = sideInset
-        val right = width - sideInset
+        val left = leftInset
+        val right = width - rightInset
         val y = trackY
         textPaint.textAlign = android.graphics.Paint.Align.LEFT
         canvas.drawText(formatTime(positionMs), 0f, y + 4f * density, textPaint)
@@ -192,7 +195,7 @@ private class PlayerSeekBar(
 
     private fun updateTarget(x: Float) {
         if (durationMs <= 0L) return
-        val ratio = ((x - sideInset) / trackWidth()).coerceIn(0f, 1f)
+        val ratio = ((x - leftInset) / trackWidth()).coerceIn(0f, 1f)
         targetMs = (durationMs * ratio).toLong()
         invalidate()
         if (SEEK_PREVIEW_ENABLED) {
