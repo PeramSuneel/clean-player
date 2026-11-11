@@ -57,7 +57,7 @@ internal class NewPlayerOverlay(
             setImageResource(icon)
             imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
             contentDescription = description
-            scaleType = ImageButton.ScaleType.CENTER_INSIDE
+            scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
             val iconDp = if (context.resources.configuration.smallestScreenWidthDp > 600) 28 else 24
             val inset = ((size - iconDp) / 2).coerceAtLeast(8)
             setPadding(dp(inset), dp(inset), dp(inset), dp(inset))
