@@ -96,7 +96,7 @@ private const val LANDSCAPE_COMPACT_CONTROLS_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
-private const val NEW_PLAYER_UI_ENABLED = false
+private const val NEW_PLAYER_UI_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -867,9 +867,12 @@ class MainActivity : AppCompatActivity() {
                 buildNewPlayerUi(pv)
                 return
             } catch (_: Exception) {
-                // The isolated v3 overlay must never interrupt playback; fall back to the existing controls.
+                // The isolated v3 overlay must never interrupt playback; remove partial views and fall back.
+                playerTopBar?.let { pv.removeView(it) }
+                playerControls?.let { pv.removeView(it) }
                 playerTopBar = null
                 playerControls = null
+                playerSeekBar = null
             }
         }
 
