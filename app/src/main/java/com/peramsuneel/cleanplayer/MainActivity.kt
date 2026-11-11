@@ -2595,7 +2595,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyVideoDefaultOrientation(videoSize: androidx.media3.common.VideoSize) {
         if (!showingPlayer || rotationManuallySelected || videoSize.width <= 0 || videoSize.height <= 0) return
-        val aspectRatio = videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio / videoSize.height.toFloat()
+
+        // Use the displayed orientation, not just the encoded width/height. Phone-recorded
+        // portrait clips can have landscape pixel dimensions plus 90/270 degree metadata.
+        var aspectRatio = videoSize.width.toFloat() *
+            videoSize.pixelWidthHeightRatio.coerceAtLeast(0.01f) /
+            videoSize.height.toFloat()
+        val rotation = ((videoSize.unappliedRotationDegrees % 360) + 360) % 360
+        if (rotation == 90 || rotation == 270) {
+            aspectRatio = 1f / aspectRatio
+        }
+
         val orientation = if (aspectRatio > 1.05f) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
             else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         applyPlayerOrientation(orientation)
