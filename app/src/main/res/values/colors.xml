@@ -9,4 +9,5 @@
     <color name="player_primary">#FFFFFF</color>
     <color name="player_buffered">#B8BCC4</color>
     <color name="player_overlay">#BF000000</color>
+    <color name="player_ripple">#33FFFFFF</color>
 </resources>

@@ -97,6 +97,7 @@ private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
 private const val NEW_PLAYER_UI_ENABLED = true
+private const val PLAYER_NO_YELLOW_ENABLED = true
 internal const val NEW_PLAYER_PIP_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
@@ -1956,7 +1957,15 @@ class MainActivity : AppCompatActivity() {
                     minHeight = dp(48)
                     isClickable = true
                     isFocusable = true
-                    setBackgroundResource(android.R.drawable.list_selector_background)
+                    if (PLAYER_NO_YELLOW_ENABLED) {
+            try {
+                background = android.graphics.drawable.RippleDrawable(
+                    android.content.res.ColorStateList.valueOf(0x33FFFFFF),
+                    null,
+                    android.graphics.drawable.ColorDrawable(0xFFFFFFFF.toInt())
+                )
+            } catch (_: Exception) { }
+        }
                     setOnClickListener {
                         val clickedPopup = playerOptionsPopup
                         try {

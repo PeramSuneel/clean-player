@@ -62,7 +62,7 @@ internal class NewPlayerOverlay(
             val inset = ((dp(size) - iconPx) / 2).coerceAtLeast(dp(8))
             setPadding(inset, inset, inset, inset)
             background = android.graphics.drawable.RippleDrawable(
-                android.content.res.ColorStateList.valueOf(0x44FFFFFF), null, null
+                android.content.res.ColorStateList.valueOf(0x33FFFFFF), null, null
             )
             minimumWidth = dp(48)
             minimumHeight = dp(48)
