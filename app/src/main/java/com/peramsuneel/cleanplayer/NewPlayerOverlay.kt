@@ -93,25 +93,25 @@ internal class NewPlayerOverlay(
             id = View.generateViewId()
             clipChildren = false
             clipToPadding = false
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xB8000000.toInt(), 0x00000000)
-            )
+            setBackgroundColor(Color.TRANSPARENT)
         }
         val bottom = ConstraintLayout(context).apply {
             id = View.generateViewId()
             clipChildren = false
             clipToPadding = false
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0x00000000, 0xB8000000.toInt())
-            )
+            setBackgroundColor(Color.TRANSPARENT)
         }
 
         val topTen = addHorizontalGuide(top, .10f)
         val optionsLine = addHorizontalGuide(top, .63f)
         val leftSafe = addVerticalGuide(top, .03f)
         val rightSafe = addVerticalGuide(top, .96f)
+        val optionsRight = addVerticalGuide(top, .95f)
+        val topShade = View(context).apply {
+            id = View.generateViewId()
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0xB8000000.toInt(), 0x00000000))
+        }
+        top.addView(topShade, ConstraintLayout.LayoutParams(0, dp(80)))
         val toolbar = LinearLayout(context).apply {
             id = View.generateViewId()
             orientation = LinearLayout.HORIZONTAL
@@ -142,6 +142,9 @@ internal class NewPlayerOverlay(
         top.addView(toolbar, ConstraintLayout.LayoutParams(0, dp(48)))
         val topSet = ConstraintSet().apply {
             clone(top)
+            connect(topShade.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
+            connect(topShade.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
+            connect(topShade.id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP)
             connect(toolbar.id, ConstraintSet.START, leftSafe.id, ConstraintSet.START)
             connect(toolbar.id, ConstraintSet.END, rightSafe.id, ConstraintSet.END)
             connect(toolbar.id, ConstraintSet.TOP, topTen.id, ConstraintSet.TOP)
@@ -179,7 +182,7 @@ internal class NewPlayerOverlay(
         optionsScroll.addView(options, ViewGroup.LayoutParams(-2, dp(48)))
         top.addView(optionsScroll, ConstraintLayout.LayoutParams(0, dp(48)))
         topSet.connect(optionsScroll.id, ConstraintSet.START, leftSafe.id, ConstraintSet.START)
-        topSet.connect(optionsScroll.id, ConstraintSet.END, rightSafe.id, ConstraintSet.END)
+        topSet.connect(optionsScroll.id, ConstraintSet.END, optionsRight.id, ConstraintSet.END)
         topSet.connect(optionsScroll.id, ConstraintSet.TOP, optionsLine.id, ConstraintSet.TOP)
         topSet.connect(optionsScroll.id, ConstraintSet.BOTTOM, optionsLine.id, ConstraintSet.BOTTOM)
         topSet.applyTo(top)
@@ -188,10 +191,18 @@ internal class NewPlayerOverlay(
         val controlsLine = addHorizontalGuide(bottom, .90f)
         val seekStart = addVerticalGuide(bottom, .03f)
         val seekEnd = addVerticalGuide(bottom, .97f)
+        val bottomShade = View(context).apply {
+            id = View.generateViewId()
+            background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(0x00000000, 0xB8000000.toInt()))
+        }
+        bottom.addView(bottomShade, ConstraintLayout.LayoutParams(0, dp(80)))
         seekView.id = View.generateViewId()
         bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(48)))
         val bottomSet = ConstraintSet().apply {
             clone(bottom)
+            connect(bottomShade.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
+            connect(bottomShade.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
+            connect(bottomShade.id, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
             connect(seekView.id, ConstraintSet.START, seekStart.id, ConstraintSet.START)
             connect(seekView.id, ConstraintSet.END, seekEnd.id, ConstraintSet.END)
             connect(seekView.id, ConstraintSet.TOP, seekLine.id, ConstraintSet.TOP)
