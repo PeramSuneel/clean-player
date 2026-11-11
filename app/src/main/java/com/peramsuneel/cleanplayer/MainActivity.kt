@@ -247,7 +247,7 @@ class MainActivity : AppCompatActivity() {
     private var isGrid = true
     private var bg = 0xFF000000.toInt()
     private var panel = 0xFF121212.toInt()
-    private var accent = 0xFF2F80ED.toInt()
+    private var accent = 0xFFFFFFFF.toInt()
     private var text = 0xFFFFFFFF.toInt()
     private var muted = 0xFF8A8F98.toInt()
     private var currentFolder: String? = null
@@ -1458,7 +1458,7 @@ class MainActivity : AppCompatActivity() {
                         group.type == C.TRACK_TYPE_TEXT && (0 until group.length).any { group.isTrackSelected(it) }
                     } == true
                     (anchor as? ImageButton)?.imageTintList = android.content.res.ColorStateList.valueOf(
-                        if (active) 0xFF2F80ED.toInt() else LiquidGlass.color(this, R.color.player_primary)
+                        if (active) LiquidGlass.color(this, R.color.player_primary) else LiquidGlass.color(this, R.color.player_primary)
                     )
                     showPlayerControls()
                 } catch (_: Exception) { }
@@ -1477,7 +1477,7 @@ class MainActivity : AppCompatActivity() {
                     if (exo != null) {
                         exo.repeatMode = if (exo.repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
                         button.setImageResource(if (exo.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.pl_ic_repeat_one else R.drawable.pl_ic_repeat)
-                        button.imageTintList = android.content.res.ColorStateList.valueOf(if (exo.repeatMode == Player.REPEAT_MODE_ONE) 0xFF2F80ED.toInt() else text)
+                        button.imageTintList = android.content.res.ColorStateList.valueOf(if (exo.repeatMode == Player.REPEAT_MODE_ONE) LiquidGlass.color(this, R.color.player_primary) else text)
                         showPlayerControls(); scheduleControlsHide()
                     }
                 } catch (_: Exception) { }
