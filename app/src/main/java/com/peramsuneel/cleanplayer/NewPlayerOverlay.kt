@@ -12,6 +12,7 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
+import androidx.constraintlayout.widget.Guideline
 
 /**
  * Isolated v3 controls overlay. The media engine and all playback actions remain owned by MainActivity.
@@ -68,8 +69,8 @@ internal class NewPlayerOverlay(
             stateListAnimator = null
         }
 
-    private fun addHorizontalGuide(layout: ConstraintLayout, percent: Float): View =
-        View(context).also {
+    private fun addHorizontalGuide(layout: ConstraintLayout, percent: Float): Guideline =
+        Guideline(context).also {
             val lp = ConstraintLayout.LayoutParams(0, 0).apply {
                 orientation = ConstraintLayout.LayoutParams.HORIZONTAL
                 guidePercent = percent
@@ -77,8 +78,8 @@ internal class NewPlayerOverlay(
             layout.addView(it, lp)
         }
 
-    private fun addVerticalGuide(layout: ConstraintLayout, percent: Float): View =
-        View(context).also {
+    private fun addVerticalGuide(layout: ConstraintLayout, percent: Float): Guideline =
+        Guideline(context).also {
             val lp = ConstraintLayout.LayoutParams(0, 0).apply {
                 orientation = ConstraintLayout.LayoutParams.VERTICAL
                 guidePercent = percent
