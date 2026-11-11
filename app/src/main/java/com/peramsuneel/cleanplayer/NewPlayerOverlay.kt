@@ -59,7 +59,7 @@ internal class NewPlayerOverlay(
             imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
             contentDescription = description
             scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
-            val iconDp = if (context.resources.configuration.smallestScreenWidthDp > 600) 28 else 24
+            val iconDp = if (context.resources.configuration.screenWidthDp > 600) 28 else 24
             val inset = ((size - iconDp) / 2).coerceAtLeast(8)
             setPadding(dp(inset), dp(inset), dp(inset), dp(inset))
             background = android.graphics.drawable.RippleDrawable(
@@ -127,7 +127,7 @@ internal class NewPlayerOverlay(
                 ellipsize = android.text.TextUtils.TruncateAt.END
                 gravity = Gravity.CENTER_VERTICAL
             }
-            addView(name, LinearLayout.LayoutParams(0, dp(48), 1f))
+            addView(name, LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginStart = -dp(8) })
             val camera = iconButton(R.drawable.ic_v3_photo_camera, "Screenshot")
             addView(camera, LinearLayout.LayoutParams(dp(48), dp(48)))
             camera.setOnClickListener { onScreenshot(it) }
@@ -169,7 +169,11 @@ internal class NewPlayerOverlay(
             b.setOnClickListener { view -> click(view) }
             return b
         }
-        option(R.drawable.ic_v3_chevron_right, "More options") { optionsScroll.smoothScrollTo(optionsScroll.scrollX + dp(240), 0) }
+        option(R.drawable.ic_v3_chevron_right, "More options") { view ->
+            val target = if (optionsScroll.scrollX <= 0) (options.width - optionsScroll.width).coerceAtLeast(0) else 0
+            optionsScroll.smoothScrollTo(target, 0)
+            (view as? ImageButton)?.animate()?.rotation(if (target > 0) 180f else 0f)?.setDuration(150L)?.start()
+        }
         option(R.drawable.ic_v3_music_note, "Audio track", onAudio)
         option(R.drawable.ic_v3_closed_caption, "Subtitles", onSubtitles)
         option(R.drawable.ic_v3_speed, "Playback speed", onSpeed)
