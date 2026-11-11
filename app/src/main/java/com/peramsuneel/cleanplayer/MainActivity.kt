@@ -249,7 +249,7 @@ class MainActivity : AppCompatActivity() {
     private var panel = 0xFF121212.toInt()
     private var accent = 0xFFFFFFFF.toInt()
     private var text = 0xFFFFFFFF.toInt()
-    private var muted = 0xFF8A8F98.toInt()
+    private var muted = 0xFF888888.toInt()
     private var currentFolder: String? = null
 
     private fun applyPalette() {
