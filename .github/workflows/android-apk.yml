@@ -60,6 +60,7 @@ jobs:
             --key-pass env:KEY_PASSWORD \
             --out "$SIGNED_APK" \
             app/build/outputs/apk/release/app-release-unsigned.apk
+            app/build/outputs/apk/release/app-release-signed.apk
           "$APKSIGNER" verify --verbose "$SIGNED_APK"
       - name: Upload debug and release APKs
         if: always()
