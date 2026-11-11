@@ -28,6 +28,7 @@ import android.graphics.Matrix
 import android.graphics.RectF
 import android.view.ScaleGestureDetector
 import android.view.TextureView
+import android.view.OrientationEventListener
 import android.graphics.BitmapFactory
 import android.content.Context
 import android.net.ConnectivityManager
@@ -96,6 +97,7 @@ private const val LANDSCAPE_COMPACT_CONTROLS_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
+private const val SEEK_BAR_STEP_MS = 3_000L
 private const val NEW_PLAYER_UI_ENABLED = true
 private const val PLAYER_NO_YELLOW_ENABLED = true
 internal const val PLAYER_BOTTOM_ROW_LAYOUT_ENABLED = true
@@ -203,7 +205,10 @@ private class PlayerSeekBar(
     private fun updateTarget(x: Float) {
         if (durationMs <= 0L) return
         val ratio = ((x - leftInset) / trackWidth()).coerceIn(0f, 1f)
-        targetMs = (durationMs * ratio).toLong()
+        val rawTarget = (durationMs * ratio).toLong()
+        targetMs = if (ratio >= 0.999f) durationMs else
+            (((rawTarget + SEEK_BAR_STEP_MS / 2L) / SEEK_BAR_STEP_MS) * SEEK_BAR_STEP_MS)
+                .coerceAtMost(durationMs)
         invalidate()
         if (SEEK_PREVIEW_ENABLED) {
             try { onPreview(targetMs, positionFor(targetMs), dragging) } catch (_: Exception) { }
@@ -345,6 +350,10 @@ class MainActivity : AppCompatActivity() {
     private var currentPlayerTitle = "Now playing"
     private var playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
     private var rotationManuallySelected = false
+    private var manualOrientationOverride: Int? = null
+    private var lastDeviceOrientationDegrees: Int = OrientationEventListener.ORIENTATION_UNKNOWN
+    private var manualOverrideBaselineDegrees: Int = OrientationEventListener.ORIENTATION_UNKNOWN
+    private var deviceOrientationListener: OrientationEventListener? = null
     private var rotationButton: ImageButton? = null
     private var playerExpandedOptionsRow: View? = null
     private var playerOptionsScroll: HorizontalScrollView? = null
@@ -363,6 +372,24 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         CrashReportManager.install(applicationContext)
+        deviceOrientationListener = object : OrientationEventListener(this) {
+            override fun onOrientationChanged(orientation: Int) {
+                if (orientation == ORIENTATION_UNKNOWN) return
+                val normalized = ((orientation % 360) + 360) % 360
+                val baseline = manualOverrideBaselineDegrees
+                if (showingPlayer && manualOrientationOverride != null &&
+                    baseline != ORIENTATION_UNKNOWN && angularDistance(normalized, baseline) >= 45
+                ) {
+                    manualOrientationOverride = null
+                    manualOverrideBaselineDegrees = ORIENTATION_UNKNOWN
+                    rotationManuallySelected = false
+                    requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+                    playerOrientation = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+                }
+                lastDeviceOrientationDegrees = normalized
+            }
+        }
         val prefs = getSharedPreferences("clean_player_preferences", MODE_PRIVATE)
         isDark = prefs.getBoolean("dark_theme", true)
         isGrid = prefs.getBoolean("grid_view", true)
@@ -374,6 +401,40 @@ class MainActivity : AppCompatActivity() {
         if (hasMediaPermission()) loadLibrary() else requestMediaPermission()
         showHome()
         root.post { CrashReportManager.showIfPresent(this) }
+    }
+
+    private fun angularDistance(first: Int, second: Int): Int {
+        val difference = kotlin.math.abs(first - second) % 360
+        return minOf(difference, 360 - difference)
+    }
+
+    override fun onStart() {
+        super.onStart()
+        deviceOrientationListener?.let { if (it.canDetectOrientation()) it.enable() }
+    }
+
+    override fun onStop() {
+        deviceOrientationListener?.disable()
+        super.onStop()
+    }
+
+    private fun toggleManualPlayerOrientation() {
+        if (!showingPlayer) return
+        if (manualOrientationOverride != null) {
+            manualOrientationOverride = null
+            manualOverrideBaselineDegrees = OrientationEventListener.ORIENTATION_UNKNOWN
+            rotationManuallySelected = false
+            requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+            playerOrientation = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+                ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+        } else {
+            val target = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+                ActivityInfo.SCREEN_ORIENTATION_PORTRAIT else ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+            manualOrientationOverride = target
+            manualOverrideBaselineDegrees = lastDeviceOrientationDegrees
+            rotationManuallySelected = true
+            applyPlayerOrientation(target)
+        }
     }
 
     private fun hasMediaPermission(): Boolean {
@@ -443,6 +504,8 @@ class MainActivity : AppCompatActivity() {
         cancelOnlineWork()
         showingPlayer = false
         currentFolder = null
+        manualOrientationOverride = null
+        manualOverrideBaselineDegrees = OrientationEventListener.ORIENTATION_UNKNOWN
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         WindowCompat.setDecorFitsSystemWindows(window, false)
         WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
@@ -731,7 +794,12 @@ class MainActivity : AppCompatActivity() {
 
     private fun showPlayer() {
         showingPlayer = true
-        applyPlayerOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+        manualOrientationOverride = null
+        manualOverrideBaselineDegrees = OrientationEventListener.ORIENTATION_UNKNOWN
+        rotationManuallySelected = false
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+        playerOrientation = if (resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE)
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT >= 28) {
             window.attributes = window.attributes.apply {
@@ -801,7 +869,7 @@ class MainActivity : AppCompatActivity() {
                 if (!PINCH_ZOOM_ENABLED || playerOptionsOpen) return false
                 try {
                     val texture = videoTransformView ?: return false
-                    val nextScale = (videoZoomScale * detector.scaleFactor).coerceIn(1f, 4f)
+                    val nextScale = (videoZoomScale * detector.scaleFactor).coerceIn(0.25f, 4f)
                     val factor = nextScale / videoZoomScale
                     videoZoomMatrix.postScale(factor, factor, detector.focusX, detector.focusY)
                     videoZoomScale = nextScale
@@ -911,7 +979,13 @@ class MainActivity : AppCompatActivity() {
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
                         if (gestureMode == 1 && event.actionMasked == MotionEvent.ACTION_UP) {
-                            player?.seekTo(dragTargetPosition)
+                            val finalDelta = ((event.x - dragStartX) / pv.width.coerceAtLeast(1).toFloat() * 60_000L).toLong()
+                            val duration = player?.duration?.takeIf { it > 0 } ?: Long.MAX_VALUE
+                            dragTargetPosition = (dragStartPosition + finalDelta).coerceIn(0L, duration)
+                            player?.let { exo ->
+                                exo.setSeekParameters(SeekParameters.EXACT)
+                                exo.seekTo(dragTargetPosition)
+                            }
                             showSeekFeedback(formatPlayerTime(dragTargetPosition), 300L)
                         } else if (gestureMode == 2) {
                             hideSeekFeedback()
@@ -1034,9 +1108,7 @@ class MainActivity : AppCompatActivity() {
             contentDescription = "Rotate screen"
             setOnClickListener {
                 try {
-                    rotationManuallySelected = true
-                    applyPlayerOrientation(if (playerOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
-                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                    toggleManualPlayerOrientation()
                     showPlayerControls()
                     scheduleControlsHide()
                 } catch (_: Exception) { }
@@ -1423,9 +1495,7 @@ class MainActivity : AppCompatActivity() {
             },
             onRotate = { button ->
                 try {
-                    rotationManuallySelected = true
-                    applyPlayerOrientation(if (playerOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
-                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                    toggleManualPlayerOrientation()
                     showPlayerControls(); scheduleControlsHide()
                 } catch (_: Exception) { }
             },
@@ -1482,6 +1552,13 @@ class MainActivity : AppCompatActivity() {
                     overlayResult?.let { result ->
                         playerControlsLocked = !playerControlsLocked
                         button.setImageResource(if (playerControlsLocked) R.drawable.pl_ic_lock_open else R.drawable.pl_ic_lock)
+                        button.imageTintList = android.content.res.ColorStateList.valueOf(
+                            if (playerControlsLocked) Color.WHITE else Color.DKGRAY
+                        )
+                        button.background = GradientDrawable().apply {
+                            cornerRadius = dp(6).toFloat()
+                            setColor(if (playerControlsLocked) 0xCC252525.toInt() else Color.WHITE)
+                        }
                         if (playerControlsLocked) {
                             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
                             result.topLayer.visibility = View.GONE
@@ -1822,28 +1899,43 @@ class MainActivity : AppCompatActivity() {
     private fun applyVideoZoomTransform() {
         try {
             val texture = videoTransformView ?: return
-            if (texture.width <= 0 || texture.height <= 0) return
-            if (videoZoomScale <= 1.001f) {
-                videoZoomScale = 1f
-                videoZoomMatrix.reset()
-            } else {
-                val bounds = RectF(0f, 0f, texture.width.toFloat(), texture.height.toFloat())
-                videoZoomMatrix.mapRect(bounds)
-                val dx = when {
-                    bounds.left > 0f -> -bounds.left
-                    bounds.right < texture.width -> texture.width - bounds.right
-                    else -> 0f
-                }
-                val dy = when {
-                    bounds.top > 0f -> -bounds.top
-                    bounds.bottom < texture.height -> texture.height - bounds.bottom
-                    else -> 0f
-                }
-                videoZoomMatrix.postTranslate(dx, dy)
+            val width = texture.width.toFloat()
+            val height = texture.height.toFloat()
+            if (width <= 0f || height <= 0f) return
+
+            val bounds = RectF(0f, 0f, width, height)
+            videoZoomMatrix.mapRect(bounds)
+            val dx = when {
+                bounds.width() <= width -> width / 2f - bounds.centerX()
+                bounds.left > 0f -> -bounds.left
+                bounds.right < width -> width - bounds.right
+                else -> 0f
             }
+            val dy = when {
+                bounds.height() <= height -> height / 2f - bounds.centerY()
+                bounds.top > 0f -> -bounds.top
+                bounds.bottom < height -> height - bounds.bottom
+                else -> 0f
+            }
+            videoZoomMatrix.postTranslate(dx, dy)
             texture.setTransform(videoZoomMatrix)
             texture.invalidate()
         } catch (_: Exception) { }
+    }
+
+    private fun reapplyVideoZoomAfterLayout() {
+        val scale = videoZoomScale.coerceIn(0.25f, 4f)
+        val texture = videoTransformView ?: return
+        texture.post {
+            try {
+                if (texture.width <= 0 || texture.height <= 0) return@post
+                videoZoomMatrix.reset()
+                videoZoomMatrix.setScale(scale, scale, texture.width / 2f, texture.height / 2f)
+                videoZoomScale = scale
+                applyVideoZoomTransform()
+                if (scale != 1f) showVideoZoomLabel()
+            } catch (_: Exception) { }
+        }
     }
 
     private fun showVideoZoomLabel() {
@@ -2385,13 +2477,12 @@ class MainActivity : AppCompatActivity() {
         super.onConfigurationChanged(newConfig)
         suppressPlayerAnimations = true
         if (showingPlayer) {
-            resetVideoZoom()
-            applySavedAspectRatio()
             applyImmersiveMode()
             playerView?.let {
                 ViewCompat.requestApplyInsets(it)
                 it.requestLayout()
             }
+            reapplyVideoZoomAfterLayout()
             applyPlayerLayoutMetrics(newConfig.orientation)
             playerSeekBar?.invalidate()
             playerControls?.requestLayout()
@@ -2662,21 +2753,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyVideoDefaultOrientation(videoSize: androidx.media3.common.VideoSize) {
-        if (!showingPlayer || rotationManuallySelected || videoSize.width <= 0 || videoSize.height <= 0) return
+        if (!showingPlayer || videoSize.width <= 0 || videoSize.height <= 0) return
 
-        // Use the displayed orientation, not just the encoded width/height. Phone-recorded
-        // portrait clips can have landscape pixel dimensions plus 90/270 degree metadata.
-        var aspectRatio = videoSize.width.toFloat() *
-            videoSize.pixelWidthHeightRatio.coerceAtLeast(0.01f) /
-            videoSize.height.toFloat()
-        val rotation = ((videoSize.unappliedRotationDegrees % 360) + 360) % 360
-        if (rotation == 90 || rotation == 270) {
-            aspectRatio = 1f / aspectRatio
-        }
-
-        val orientation = if (aspectRatio > 1.05f) ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
-            else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        applyPlayerOrientation(orientation)
+        // Screen orientation follows the device sensor. Media3's video surface and FIT
+        // resize mode preserve the stream's intrinsic ratio and rotation metadata.
+        playerView?.requestLayout()
+        videoTransformView?.post { applyVideoZoomTransform() }
     }
 
     private fun playerOverlayButton(icon: Int): ImageButton = ImageButton(this).apply {
