@@ -136,12 +136,12 @@ internal class NewPlayerOverlay(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
         }
+        val aspect = iconButton(R.drawable.ic_v3_aspect_ratio, "Aspect ratio")
+        rightActions.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
+        aspect.setOnClickListener { onAspect(aspect) }
         val mute = iconButton(R.drawable.ic_v3_volume_up, "Mute")
         rightActions.addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
         mute.setOnClickListener { onMute(mute) }
-        val rotate = iconButton(R.drawable.ic_v3_screen_rotation, "Rotate screen")
-        rightActions.addView(rotate, LinearLayout.LayoutParams(dp(48), dp(48)))
-        rotate.setOnClickListener { onRotate(rotate) }
         top.addView(rightActions, ConstraintLayout.LayoutParams(-2, dp(48)))
 
         val topSet = ConstraintSet().apply {
@@ -230,7 +230,7 @@ internal class NewPlayerOverlay(
         bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(48)))
 
         val lock = iconButton(R.drawable.ic_v3_lock, "Lock controls")
-        val aspect = iconButton(R.drawable.ic_v3_aspect_ratio, "Aspect ratio")
+        val rotate = iconButton(R.drawable.ic_v3_screen_rotation, "Rotate screen")
         val group = LinearLayout(context).apply {
             id = View.generateViewId()
             orientation = LinearLayout.HORIZONTAL
@@ -252,7 +252,7 @@ internal class NewPlayerOverlay(
             })
         }
         bottom.addView(lock, ConstraintLayout.LayoutParams(dp(48), dp(48)))
-        bottom.addView(aspect, ConstraintLayout.LayoutParams(dp(48), dp(48)))
+        bottom.addView(rotate, ConstraintLayout.LayoutParams(dp(48), dp(48)))
         bottom.addView(group, ConstraintLayout.LayoutParams(-2, dp(56)))
 
         val bottomSet = ConstraintSet().apply {
@@ -267,9 +267,9 @@ internal class NewPlayerOverlay(
             connect(lock.id, ConstraintSet.START, leftEdge.id, ConstraintSet.START)
             connect(lock.id, ConstraintSet.TOP, controlsLine.id, ConstraintSet.TOP)
             connect(lock.id, ConstraintSet.BOTTOM, controlsLine.id, ConstraintSet.BOTTOM)
-            connect(aspect.id, ConstraintSet.END, rightEdge.id, ConstraintSet.START)
-            connect(aspect.id, ConstraintSet.TOP, controlsLine.id, ConstraintSet.TOP)
-            connect(aspect.id, ConstraintSet.BOTTOM, controlsLine.id, ConstraintSet.BOTTOM)
+            connect(rotate.id, ConstraintSet.END, rightEdge.id, ConstraintSet.START)
+            connect(rotate.id, ConstraintSet.TOP, controlsLine.id, ConstraintSet.TOP)
+            connect(rotate.id, ConstraintSet.BOTTOM, controlsLine.id, ConstraintSet.BOTTOM)
             connect(group.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
             connect(group.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
             connect(group.id, ConstraintSet.TOP, controlsLine.id, ConstraintSet.TOP)
@@ -283,7 +283,7 @@ internal class NewPlayerOverlay(
         play.setOnClickListener { onPlayPause(play) }
         forward10.setOnClickListener { onForward10(it) }
         next.setOnClickListener { onNext(it) }
-        aspect.setOnClickListener { onAspect(it) }
+        rotate.setOnClickListener { onRotate(rotate) }
         lock.setOnClickListener { onLock(lock) }
 
         return Result(top, bottom, play, mute, rotate, repeat, lock, name)

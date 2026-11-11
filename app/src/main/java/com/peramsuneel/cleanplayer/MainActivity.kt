@@ -99,6 +99,7 @@ private const val PINCH_ZOOM_ENABLED = true
 private const val NEW_PLAYER_UI_ENABLED = true
 private const val PLAYER_NO_YELLOW_ENABLED = true
 private const val PLAYER_BOTTOM_ROW_LAYOUT_ENABLED = true
+private const val PLAYER_TOP_ROW_LAYOUT_ENABLED = true
 internal const val NEW_PLAYER_PIP_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
