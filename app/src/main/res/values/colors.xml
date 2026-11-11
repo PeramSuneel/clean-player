@@ -5,7 +5,7 @@
     <color name="player_surface">#121212</color>
     <color name="player_divider">#2A2A2A</color>
     <color name="player_secondary">#8A8F98</color>
-    <color name="player_accent">#2F80ED</color>
+    <color name="player_accent">#FFFFFF</color>
     <color name="player_primary">#FFFFFF</color>
     <color name="player_buffered">#B8BCC4</color>
     <color name="player_overlay">#BF000000</color>

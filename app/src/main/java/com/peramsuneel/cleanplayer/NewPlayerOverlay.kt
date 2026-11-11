@@ -60,7 +60,7 @@ internal class NewPlayerOverlay(
             val iconPx = dp(24)
             val inset = ((dp(size) - iconPx) / 2).coerceAtLeast(0)
             setPadding(inset, inset, inset, inset)
-            background = LiquidGlass.button(context)
+            background = LiquidGlass.controlButton(context)
             minimumWidth = dp(48)
             minimumHeight = dp(48)
             stateListAnimator = null
@@ -201,7 +201,7 @@ internal class NewPlayerOverlay(
         val lock = iconButton(R.drawable.pl_ic_lock_open, "Lock controls").apply {
             id = View.generateViewId()
             imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-            background = LiquidGlass.button(context)
+            background = LiquidGlass.controlButton(context)
             // Keep the lock target visually distinct and above the bottom shade/seek layer.
             elevation = dp(6).toFloat()
             imageAlpha = 255

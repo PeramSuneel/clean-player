@@ -516,7 +516,7 @@ class MainActivity : AppCompatActivity() {
         search = EditText(this).apply {
             hint = "Search videos, songs or folders"
             setSingleLine(true); textSize = 15f; setTextColor(this@MainActivity.text); setHintTextColor(muted)
-            setPadding(dp(14), 0, dp(14), 0); background = LiquidGlass.panel(this)
+            setPadding(dp(14), 0, dp(14), 0); background = LiquidGlass.panel(this@MainActivity)
             setText(filter)
         }
         val searchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -585,7 +585,7 @@ class MainActivity : AppCompatActivity() {
             if (isGrid) {
                 val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
                 groups.forEach { (folder, items) ->
-                    val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(9), dp(12), dp(9), dp(12)); background = LiquidGlass.panel(this) }
+                    val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(9), dp(12), dp(9), dp(12)); background = LiquidGlass.panel(this@MainActivity) }
                     val preview = folderThumbnail(items)
                     if (preview != null) card.addView(preview, LinearLayout.LayoutParams(-1, dp(94)))
                     else card.addView(label(if (selectedTab == "Videos") "VIDEO" else "AUDIO", 13, muted, true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(8)) })
@@ -598,7 +598,7 @@ class MainActivity : AppCompatActivity() {
                 content.addView(grid)
             } else {
                 groups.forEach { (folder, items) ->
-                    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(9), dp(10), dp(9)); background = LiquidGlass.panel(this) }
+                    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(9), dp(10), dp(9)); background = LiquidGlass.panel(this@MainActivity) }
                     val preview = folderThumbnail(items)
                     if (preview != null) row.addView(preview, LinearLayout.LayoutParams(dp(88), dp(66)).apply { marginEnd = dp(12) })
                     else row.addView(label(if (selectedTab == "Videos") "VIDEO" else "AUDIO", 13, muted, true), LinearLayout.LayoutParams(dp(88), dp(66)).apply { gravity = Gravity.CENTER_VERTICAL })
@@ -653,7 +653,7 @@ class MainActivity : AppCompatActivity() {
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(dp(8), dp(8), dp(8), dp(9))
-                    background = LiquidGlass.panel(this)
+                    background = LiquidGlass.panel(this@MainActivity)
                 }
                 val preview = mediaThumbnail(file)
                 if (preview != null) {
@@ -686,7 +686,7 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(10), dp(9), dp(10), dp(9))
-                    background = LiquidGlass.panel(this)
+                    background = LiquidGlass.panel(this@MainActivity)
                 }
                 val preview = mediaThumbnail(file)
                 if (preview != null) {
@@ -717,7 +717,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < 29 || file.isAudio) return null
         return try {
             val bitmap: Bitmap = contentResolver.loadThumbnail(file.uri, Size(dp(220), dp(140)), null)
-            ImageView(this).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; background = LiquidGlass.panel(this) }
+            ImageView(this).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; background = LiquidGlass.panel(this@MainActivity) }
         } catch (_: Exception) { null }
     }
 
@@ -2562,11 +2562,11 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(8), dp(8), dp(8), dp(8))
-                    background = LiquidGlass.panel(this)
+                    background = LiquidGlass.panel(this@MainActivity)
                 }
                 val thumbnail = ImageView(this).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    background = LiquidGlass.panel(this)
+                    background = LiquidGlass.panel(this@MainActivity)
                     contentDescription = "Thumbnail for ${result.title}"
                 }
                 row.addView(thumbnail, LinearLayout.LayoutParams(dp(112), dp(72)).apply { marginEnd = dp(12) })

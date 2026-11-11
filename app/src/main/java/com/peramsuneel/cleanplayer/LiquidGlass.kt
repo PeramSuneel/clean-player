@@ -30,11 +30,22 @@ internal object LiquidGlass {
  } }
  fun controlPanel(c:Context,r:Int=24):Drawable=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
   intArrayOf(0xAA333333.toInt(),0x77111111)).apply { cornerRadius=dp(c,r); setStroke(dp(c,1).toInt(),0x99FFFFFF.toInt()) }
- fun button(c:Context,selected:Boolean=false):Drawable { val b=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-  if(selected) intArrayOf(0xDFFFFFFF.toInt(),0x99FFFFFF.toInt()) else intArrayOf(0x88333333.toInt(),0x55111111)).apply {
-  cornerRadius=dp(c,16); setStroke(dp(c,1).toInt(),if(selected) 0xDDFFFFFF.toInt() else 0x66FFFFFF)
- }; return RippleDrawable(ColorStateList.valueOf(0x44FFFFFF),b,null) }
- fun circular(c:Context):Drawable=GradientDrawable(GradientDrawable.Orientation.TL_BR,intArrayOf(0xDFFFFFFF.toInt(),0x77FFFFFF)).apply {
+ fun button(c:Context,selected:Boolean=false):Drawable {
+  val d=dark(c)
+  val fill=when { d && selected -> intArrayOf(0x99555555.toInt(),0x77333333)
+                  d -> intArrayOf(0x88333333.toInt(),0x55111111)
+                  selected -> intArrayOf(0xF2FFFFFF.toInt(),0xDFFFFFFF.toInt())
+                  else -> intArrayOf(0xDDFFFFFF.toInt(),0xBFFFFFFF.toInt()) }
+  val b=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,fill).apply {
+   cornerRadius=dp(c,16)
+   setStroke(dp(c,1).toInt(),if(d) 0x88FFFFFF.toInt() else 0x77000000)
+  }
+  return RippleDrawable(ColorStateList.valueOf(0x44FFFFFF),b,null)
+ }
+ fun controlButton(c:Context):Drawable =
+  RippleDrawable(ColorStateList.valueOf(0x44FFFFFF),controlPanel(c,18),null)
+ fun circular(c:Context):Drawable=GradientDrawable(GradientDrawable.Orientation.TL_BR,
+  intArrayOf(0xAA444444.toInt(),0x77111111)).apply {
   shape=GradientDrawable.OVAL; setStroke(dp(c,1).toInt(),Color.WHITE)
  }
  fun elevation(c:Context)=dp(c,5)
