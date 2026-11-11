@@ -85,7 +85,6 @@ private const val AUDIO_TRACK_SESSION_MEMORY_ENABLED = true
 private const val SPEED_LABEL_LIVE_ENABLED = true
 private const val SCREENSHOT_ENABLED = false
 private const val REPEAT_ONE_ENABLED = false
-private const val AUDIO_ONLY_ENABLED = false
 private const val LIVE_SCRUBBING_ENABLED = true
 private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = false
 private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
@@ -106,7 +105,7 @@ internal const val PLAYER_ICON_ROW_LAYOUT_ENABLED = true
 internal const val PLAYER_COMPACT_BOTTOM_ENABLED = true
 internal const val PLAYER_PERCENT_ALIGNMENT_ENABLED = true
 
-private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
+private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val duration: Long)
 
 private class PlayerSeekBar(
     context: Context,
@@ -268,7 +267,6 @@ class MainActivity : AppCompatActivity() {
     private var showingPlayer = false
     private lateinit var root: LinearLayout
     private lateinit var search: EditText
-    private var selectedTab = "Videos"
     private val onlineHandler = Handler(Looper.getMainLooper())
     private val onlineExecutor = Executors.newSingleThreadExecutor()
     private val thumbnailExecutor = Executors.newFixedThreadPool(2)
@@ -302,8 +300,6 @@ class MainActivity : AppCompatActivity() {
     private var preferredAudioLanguage: String? = null
     private var playerMuteButton: ImageButton? = null
     private var repeatButton: ImageButton? = null
-    private var audioOnlyEnabled = false
-    private var audioOnlyOverlay: TextView? = null
     private var seekWasPlaying = false
     private var lastLiveSeekAt = 0L
     private var videoZoomMatrix = Matrix()
@@ -408,13 +404,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hasMediaPermission(): Boolean {
-        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO)
+        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
             else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         return permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }
     }
 
     private fun requestMediaPermission() {
-        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO)
+        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
             else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         ActivityCompat.requestPermissions(this, permissions, 41)
     }
@@ -435,15 +431,13 @@ class MainActivity : AppCompatActivity() {
     private fun loadLibrary() {
         files.clear()
         if (Build.VERSION.SDK_INT >= 33) {
-            query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, false)
-            query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true)
+            query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
         } else {
-            query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, false)
-            query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, true)
+            query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
         }
     }
 
-    private fun query(collection: Uri, audio: Boolean) {
+    private fun query(collection: Uri) {
         val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.DURATION, MediaStore.MediaColumns.RELATIVE_PATH)
         val sort = MediaStore.MediaColumns.DISPLAY_NAME + " COLLATE NOCASE ASC"
         try {
@@ -462,7 +456,7 @@ class MainActivity : AppCompatActivity() {
                     if (isDriveContent) continue
                     val folder = path.substringAfterLast('/', path.ifBlank { "Internal storage" }).ifBlank { "Internal storage" }
                     val uri = ContentUris.withAppendedId(collection, id)
-                    files.add(MediaFile(id, name, uri, folder, audio, if (durCol >= 0) c.getLong(durCol) else 0L))
+                    files.add(MediaFile(id, name, uri, folder, if (durCol >= 0) c.getLong(durCol) else 0L))
                 }
             }
         } catch (_: Exception) { }
@@ -524,7 +518,7 @@ class MainActivity : AppCompatActivity() {
         themeButton.setOnClickListener { isDark = !isDark; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("dark_theme", isDark).apply(); applyPalette(); showHome(search.text.toString()) }
         header.addView(toolbar)
         search = EditText(this).apply {
-            hint = "Search videos, songs or folders"
+            hint = "Search videos or folders"
             setSingleLine(true); textSize = 15f; setTextColor(this@MainActivity.text); setHintTextColor(muted)
             setPadding(dp(14), 0, dp(14), 0); background = LiquidGlass.panel(this@MainActivity)
             setText(filter)
@@ -555,20 +549,6 @@ class MainActivity : AppCompatActivity() {
         root.addView(header, LinearLayout.LayoutParams(-1, -2).apply {
             setMargins(dp(14), dp(10), dp(14), dp(8))
         })
-        val tabs = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(dp(5), dp(5), dp(5), dp(5))
-            background = LiquidGlass.panel(this@MainActivity, 22)
-            elevation = LiquidGlass.elevation(this@MainActivity)
-        }
-        listOf("Videos", "Audio").forEach { tab ->
-            val b = button(tab, tab == selectedTab)
-            tabs.addView(b, LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(6) })
-            b.setOnClickListener { selectedTab = tab; showHome(search.text.toString()) }
-        }
-        root.addView(tabs, LinearLayout.LayoutParams(-1, -2).apply {
-            setMargins(dp(14), dp(2), dp(14), dp(8))
-        })
         val scroll = ScrollView(this)
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(8), dp(14), dp(30)) }
         scroll.addView(content)
@@ -595,13 +575,13 @@ class MainActivity : AppCompatActivity() {
     private fun populateHomeContent(content: LinearLayout, filter: String) {
         content.removeAllViews()
         val q = filter.trim().lowercase(Locale.getDefault())
-        val visible = files.filter { it.isAudio == (selectedTab == "Audio") && (q.isBlank() || it.name.lowercase(Locale.getDefault()).contains(q) || it.folder.lowercase(Locale.getDefault()).contains(q)) }
+        val visible = files.filter { q.isBlank() || it.name.lowercase(Locale.getDefault()).contains(q) || it.folder.lowercase(Locale.getDefault()).contains(q) }
         val groups = visible.groupBy { it.folder }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
-        content.addView(label(if (selectedTab == "Videos") "FOLDERS" else "AUDIO FOLDERS", 12, muted, true))
+        content.addView(label("VIDEO FOLDERS", 12, muted, true))
         if (groups.isEmpty()) {
             val emptyTitle = if (files.isEmpty()) "Your library is waiting" else "No matching media"
-            val emptyMessage = if (files.isEmpty()) "Allow media access to see your videos and audio here." else "Try another search term or clear your search."
-            content.addView(glassEmptyState(emptyTitle, emptyMessage, selectedTab == "Audio"),
+            val emptyMessage = if (files.isEmpty()) "Allow media access to see your videos here." else "Try another search term or clear your search."
+            content.addView(glassEmptyState(emptyTitle, emptyMessage),
                 LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
         } else {
             if (isGrid) {
@@ -617,9 +597,9 @@ class MainActivity : AppCompatActivity() {
                     }
                     val preview = folderThumbnail(items)
                     if (preview != null) card.addView(preview, LinearLayout.LayoutParams(-1, dp(94)))
-                    else card.addView(mediaTypePlaceholder(selectedTab == "Audio"), LinearLayout.LayoutParams(-1, dp(94)))
+                    else card.addView(mediaTypePlaceholder(), LinearLayout.LayoutParams(-1, dp(94)))
                     card.addView(label(folder, 15, text, true).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
-                    card.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false).apply { gravity = Gravity.CENTER })
+                    card.addView(label("${items.size} videos", 12, muted, false).apply { gravity = Gravity.CENTER })
                     card.setOnClickListener { showFolder(folder, items) }
                     val params = GridLayout.LayoutParams().apply { width = 0; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f); setMargins(dp(4), dp(4), dp(4), dp(4)) }
                     grid.addView(card, params)
@@ -637,10 +617,10 @@ class MainActivity : AppCompatActivity() {
                     }
                     val preview = folderThumbnail(items)
                     if (preview != null) row.addView(preview, LinearLayout.LayoutParams(dp(88), dp(66)).apply { marginEnd = dp(12) })
-                    else row.addView(mediaTypePlaceholder(selectedTab == "Audio"), LinearLayout.LayoutParams(dp(88), dp(66)))
+                    else row.addView(mediaTypePlaceholder(), LinearLayout.LayoutParams(dp(88), dp(66)))
                     val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
                     details.addView(label(folder, 15, text, true))
-                    details.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false))
+                    details.addView(label("${items.size} videos", 12, muted, false))
                     row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
                     row.setOnClickListener { showFolder(folder, items) }
                     content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
@@ -680,7 +660,7 @@ class MainActivity : AppCompatActivity() {
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         })
-        titleBlock.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false))
+        titleBlock.addView(label("${items.size} videos", 12, muted, false))
         head.addView(titleBlock, LinearLayout.LayoutParams(0, -2, 1f))
         val viewButton = button(if (isGrid) "Grid" else "List", false).apply {
             background = LiquidGlass.button(this@MainActivity, false)
@@ -707,7 +687,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
         if (items.isEmpty()) {
-            content.addView(glassEmptyState("This folder is empty", "There are no playable files in this folder.", selectedTab == "Audio"),
+            content.addView(glassEmptyState("This folder is empty", "There are no playable videos in this folder."),
                 LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) })
         } else if (isGrid) {
             val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
@@ -723,7 +703,7 @@ class MainActivity : AppCompatActivity() {
                 if (preview != null) {
                     card.addView(preview, LinearLayout.LayoutParams(-1, dp(124)))
                 } else {
-                    card.addView(mediaTypePlaceholder(file.isAudio), LinearLayout.LayoutParams(-1, dp(124)))
+                    card.addView(mediaTypePlaceholder(), LinearLayout.LayoutParams(-1, dp(124)))
                 }
                 card.addView(label(file.name, 14, text, true).apply {
                     maxLines = 2
@@ -757,7 +737,7 @@ class MainActivity : AppCompatActivity() {
                 if (preview != null) {
                     row.addView(preview, LinearLayout.LayoutParams(dp(104), dp(68)).apply { marginEnd = dp(12) })
                 } else {
-                    row.addView(mediaTypePlaceholder(file.isAudio),
+                    row.addView(mediaTypePlaceholder(),
                         LinearLayout.LayoutParams(dp(104), dp(68)))
                 }
                 val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -776,7 +756,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun glassEmptyState(title: String, message: String, isAudio: Boolean): LinearLayout =
+    private fun glassEmptyState(title: String, message: String): LinearLayout =
         LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -784,9 +764,9 @@ class MainActivity : AppCompatActivity() {
             background = LiquidGlass.panel(this@MainActivity, 26)
             elevation = LiquidGlass.elevation(this@MainActivity)
             val symbol = ImageView(this@MainActivity).apply {
-                setImageResource(if (isAudio) R.drawable.pl_ic_audiotrack else R.drawable.pl_ic_play_arrow)
+                setImageResource(R.drawable.pl_ic_play_arrow)
                 imageTintList = android.content.res.ColorStateList.valueOf(text)
-                contentDescription = if (isAudio) "Audio library" else "Video library"
+                contentDescription = "Video library"
                 scaleType = ImageView.ScaleType.CENTER_INSIDE
             }
             addView(symbol, LinearLayout.LayoutParams(dp(42), dp(42)).apply { bottomMargin = dp(13) })
@@ -802,24 +782,24 @@ class MainActivity : AppCompatActivity() {
             })
         }
 
-    private fun mediaTypePlaceholder(isAudio: Boolean): FrameLayout = FrameLayout(this).apply {
+    private fun mediaTypePlaceholder(): FrameLayout = FrameLayout(this).apply {
         background = LiquidGlass.thumbnail(this@MainActivity, 18)
         val symbol = ImageView(this@MainActivity).apply {
-            setImageResource(if (isAudio) R.drawable.pl_ic_audiotrack else R.drawable.pl_ic_play_arrow)
+            setImageResource(R.drawable.pl_ic_play_arrow)
             imageTintList = android.content.res.ColorStateList.valueOf(text)
-            contentDescription = if (isAudio) "Audio" else "Video"
+            contentDescription = "Video"
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
         addView(symbol, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.CENTER))
     }
 
     private fun folderThumbnail(items: List<MediaFile>): ImageView? {
-        val firstVideo = items.firstOrNull { !it.isAudio } ?: return null
+        val firstVideo = items.firstOrNull() ?: return null
         return mediaThumbnail(firstVideo)
     }
 
     private fun mediaThumbnail(file: MediaFile): ImageView? {
-        if (Build.VERSION.SDK_INT < 29 || file.isAudio) return null
+        if (Build.VERSION.SDK_INT < 29) return null
         return try {
             val bitmap: Bitmap = contentResolver.loadThumbnail(file.uri, Size(dp(220), dp(140)), null)
             ImageView(this).apply {
@@ -836,7 +816,6 @@ class MainActivity : AppCompatActivity() {
         cancelOnlineWork()
         onlineMode = false
         queue.clear(); queue.addAll(items); currentIndex = index
-        audioOnlyEnabled = false
         currentPlayerTitle = queue.getOrNull(index)?.name ?: "Now playing"
         rotationManuallySelected = false
         playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
@@ -918,16 +897,6 @@ class MainActivity : AppCompatActivity() {
             } catch (_: Exception) { }
         }
         root.addView(pv, LinearLayout.LayoutParams(-1, -1))
-        audioOnlyOverlay = TextView(this).apply {
-            text = "AUDIO ONLY"
-            textSize = 13f
-            setTextColor(LiquidGlass.color(this@MainActivity, R.color.player_primary))
-            gravity = Gravity.CENTER
-            letterSpacing = 0.18f
-            visibility = View.GONE
-            setBackgroundColor(bg)
-        }
-        pv.addView(audioOnlyOverlay, FrameLayout.LayoutParams(-1, -1, Gravity.CENTER))
 
         val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
@@ -1851,20 +1820,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun toggleAudioOnly() {
-        if (!AUDIO_ONLY_ENABLED) return
-        try {
-            val surface = playerView?.videoSurfaceView ?: throw IllegalStateException("Video surface unavailable")
-            audioOnlyEnabled = !audioOnlyEnabled
-            surface.visibility = if (audioOnlyEnabled) View.INVISIBLE else View.VISIBLE
-            audioOnlyOverlay?.visibility = if (audioOnlyEnabled) View.VISIBLE else View.GONE
-            Toast.makeText(this, if (audioOnlyEnabled) "Audio-only mode on" else "Video mode on", Toast.LENGTH_SHORT).show()
-        } catch (_: Exception) {
-            audioOnlyEnabled = false
-            Toast.makeText(this, "Unable to change audio-only mode", Toast.LENGTH_SHORT).show()
-        }
-    }
-
     private fun toggleRepeatOne() {
         if (!REPEAT_ONE_ENABLED) return
         try {
@@ -2720,7 +2675,6 @@ class MainActivity : AppCompatActivity() {
         onlineMode = false
         currentPlayerTitle = title
         queue.clear()
-        audioOnlyEnabled = false
         currentIndex = 0
         rotationManuallySelected = false
         playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
