@@ -139,7 +139,7 @@ internal class NewPlayerOverlay(
         }
         val camera = iconButton(R.drawable.ic_v3_photo_camera, "Screenshot")
         rightActions.addView(camera, LinearLayout.LayoutParams(dp(48), dp(48)))
-        camera.setOnClickListener(onScreenshot)
+        camera.setOnClickListener { onScreenshot(it) }
         val mute = iconButton(R.drawable.ic_v3_volume_up, "Mute")
         rightActions.addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
         mute.setOnClickListener { onMute(mute) }
@@ -281,12 +281,12 @@ internal class NewPlayerOverlay(
         }
         bottomSet.applyTo(bottom)
 
-        previous.setOnClickListener(onPrevious)
-        back10.setOnClickListener(onBack10)
+        previous.setOnClickListener { onPrevious(it) }
+        back10.setOnClickListener { onBack10(it) }
         play.setOnClickListener { onPlayPause(play) }
-        forward10.setOnClickListener(onForward10)
-        next.setOnClickListener(onNext)
-        aspect.setOnClickListener(onAspect)
+        forward10.setOnClickListener { onForward10(it) }
+        next.setOnClickListener { onNext(it) }
+        aspect.setOnClickListener { onAspect(it) }
         lock.setOnClickListener { onLock(lock) }
 
         return Result(top, bottom, play, mute, rotate, repeat, lock, name)
