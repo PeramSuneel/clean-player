@@ -236,18 +236,17 @@ internal class NewPlayerOverlay(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
+        val back10 = iconButton(R.drawable.ic_v3_fast_rewind, "Back 10 seconds")
         val previous = iconButton(R.drawable.ic_v3_skip_previous, "Previous")
-        val back10 = iconButton(R.drawable.ic_v3_replay_10, "Back 10 seconds")
-        val play = iconButton(R.drawable.ic_v3_pause, "Pause", 56)
+        val play = iconButton(R.drawable.ic_v3_pause, "Pause", 48)
         play.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(0xFF2F80ED.toInt())
         }
-        val forward10 = iconButton(R.drawable.ic_v3_forward_10, "Forward 10 seconds")
         val next = iconButton(R.drawable.ic_v3_skip_next, "Next")
-        listOf(previous, back10, play, forward10, next).forEachIndexed { index, button ->
-            val size = if (button === play) 56 else 48
-            group.addView(button, LinearLayout.LayoutParams(dp(size), dp(size)).apply {
+        val forward10 = iconButton(R.drawable.ic_v3_fast_forward, "Forward 10 seconds")
+        listOf(back10, previous, play, next, forward10).forEachIndexed { index, button ->
+            group.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
                 if (index > 0) marginStart = dp(4)
                 if (index < 4) marginEnd = dp(4)
             })
