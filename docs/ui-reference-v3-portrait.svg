@@ -34,14 +34,14 @@
 <g class="w" transform="translate(27 786)"><rect x="-10" y="-2" width="20" height="17" rx="2"/><path d="M-6 -2V-6A6 6 0 0 1 6 -6V-2"/></g>
 <g transform="translate(80 786)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
  <path d="M9 -8A12 12 0 1 0 10 7"/><path d="M9 -8L2 -8M9 -8L9 -1"/>
- <path d="M-4 -4L-4 4M-4 -4L-7 -1M-4 -4L-1 -1"/><path d="M1 -4C4 -4 4 -1 1 -1H0L4 4H0" stroke-width="2.5"/>
+ <path d="M-6 -3L-3 -5V5" stroke-width="2.8"/><path d="M2 -5C-1 -5 -1 5 2 5C5 5 5 -5 2 -5Z" stroke-width="2.8"/>
 </g>
 <g transform="translate(133 786)" fill="#fff"><rect x="-10" y="-10" width="3" height="20"/><path d="M-4 0L9 -10V10Z"/></g>
 <circle cx="188" cy="786" r="24" fill="#1689ed"/><path d="M182 775V797M194 775V797" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
 <g transform="translate(243 786)" fill="#fff"><path d="M-9 -10L4 0L-9 10Z"/><rect x="7" y="-10" width="3" height="20"/></g>
 <g transform="translate(296 786)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
  <path d="M-9 -8A12 12 0 1 1 -10 7"/><path d="M-9 -8L-2 -8M-9 -8L-9 -1"/>
- <path d="M-4 -4L-4 4M-4 -4L-7 -1M-4 -4L-1 -1"/><path d="M1 -4C4 -4 4 -1 1 -1H0L4 4H0" stroke-width="2.5"/>
+ <path d="M-6 -3L-3 -5V5" stroke-width="2.8"/><path d="M2 -5C-1 -5 -1 5 2 5C5 5 5 -5 2 -5Z" stroke-width="2.8"/>
 </g>
 <g class="w" transform="translate(349 786)"><path d="M-12 -5V-12H-5M5 -12H12V-5M12 5V12H5M-5 12H-12V5"/></g>
 </svg>
