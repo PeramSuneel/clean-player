@@ -819,7 +819,7 @@ class MainActivity : AppCompatActivity() {
                                 val volume = (initialVolume + (fraction * maxVolume).toInt()).coerceIn(0, maxVolume)
                                 audio.setStreamVolume(AudioManager.STREAM_MUSIC, volume, 0)
                                 if (volume > 0) lastAudibleVolume = volume
-                                playerMuteButton?.setImageResource(if (volume == 0) R.drawable.ic_player_mute else R.drawable.ic_player_volume)
+                                playerMuteButton?.setImageResource(if (NEW_PLAYER_UI_ENABLED) { if (volume == 0) R.drawable.ic_v3_volume_off else R.drawable.ic_v3_volume_up } else { if (volume == 0) R.drawable.ic_player_mute else R.drawable.ic_player_volume })
                                 playerMuteButton?.contentDescription = if (volume == 0) "Unmute audio" else "Mute audio"
                                 if (VOLUME_PERCENT_INDICATOR_ENABLED) {
                                     val volumePercent = if (maxVolume > 0) (volume * 100f / maxVolume).toInt() else 0
@@ -1392,6 +1392,7 @@ class MainActivity : AppCompatActivity() {
         ).build()
 
         overlayResult = ui
+        playerTitleView = ui.titleView
         playerTopBar = ui.topLayer
         playerControls = ui.bottomLayer
         playPauseButton = ui.playButton
@@ -1742,6 +1743,8 @@ class MainActivity : AppCompatActivity() {
     private fun resetVideoZoom() {
         try {
             videoZoomScale = 1f
+            playerVideoFlipped = false
+            videoTransformView?.scaleX = 1f
             videoZoomMatrix.reset()
             videoPinching = false
             gestureMode = 0
@@ -2551,9 +2554,9 @@ class MainActivity : AppCompatActivity() {
         val activePlayer = player
         try {
             playPauseButton?.setImageResource(when {
-                activePlayer?.isPlaying == true -> R.drawable.ic_player_pause
-                REPLAY_AT_END_ENABLED && activePlayer != null && playbackIsAtEnd(activePlayer) -> R.drawable.ic_player_replay
-                else -> R.drawable.ic_player_play
+                activePlayer?.isPlaying == true -> if (NEW_PLAYER_UI_ENABLED) R.drawable.ic_v3_pause else R.drawable.ic_player_pause
+                REPLAY_AT_END_ENABLED && activePlayer != null && playbackIsAtEnd(activePlayer) -> if (NEW_PLAYER_UI_ENABLED) R.drawable.ic_v3_replay else R.drawable.ic_player_replay
+                else -> if (NEW_PLAYER_UI_ENABLED) R.drawable.ic_v3_play_arrow else R.drawable.ic_player_play
             })
         } catch (_: Exception) { }
     }
