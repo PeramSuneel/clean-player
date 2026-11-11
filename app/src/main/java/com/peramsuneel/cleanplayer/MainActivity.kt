@@ -599,7 +599,10 @@ class MainActivity : AppCompatActivity() {
         val groups = visible.groupBy { it.folder }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
         content.addView(label(if (selectedTab == "Videos") "FOLDERS" else "AUDIO FOLDERS", 12, muted, true))
         if (groups.isEmpty()) {
-            content.addView(label(if (files.isEmpty()) "No media found yet. Allow access to your media library." else "No matching media found.", 15, muted, false).apply { setPadding(0, dp(25), 0, 0) })
+            val emptyTitle = if (files.isEmpty()) "Your library is waiting" else "No matching media"
+            val emptyMessage = if (files.isEmpty()) "Allow media access to see your videos and audio here." else "Try another search term or clear your search."
+            content.addView(glassEmptyState(emptyTitle, emptyMessage, selectedTab == "Audio"),
+                LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
         } else {
             if (isGrid) {
                 val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
@@ -651,6 +654,8 @@ class MainActivity : AppCompatActivity() {
         onlineMode = false
         currentFolder = folder
         root.removeAllViews()
+        root.setBackgroundColor(bg)
+        applyScreenInsets(root)
 
         val head = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -662,7 +667,7 @@ class MainActivity : AppCompatActivity() {
         }
         val back = ImageButton(this).apply {
             setImageResource(R.drawable.pl_ic_arrow_back)
-            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            imageTintList = android.content.res.ColorStateList.valueOf(text)
             contentDescription = "Back to library"
             background = LiquidGlass.controlButton(this@MainActivity)
             setPadding(dp(11), dp(11), dp(11), dp(11))
@@ -677,7 +682,10 @@ class MainActivity : AppCompatActivity() {
         })
         titleBlock.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false))
         head.addView(titleBlock, LinearLayout.LayoutParams(0, -2, 1f))
-        val viewButton = button(if (isGrid) "Grid" else "List", false)
+        val viewButton = button(if (isGrid) "Grid" else "List", false).apply {
+            background = LiquidGlass.button(this@MainActivity, false)
+            setTextColor(text)
+        }
         viewButton.contentDescription = "Switch folder grid or list view"
         head.addView(viewButton, LinearLayout.LayoutParams(dp(60), dp(42)))
         viewButton.setOnClickListener {
@@ -696,32 +704,36 @@ class MainActivity : AppCompatActivity() {
             setPadding(dp(14), dp(4), dp(14), dp(24))
         }
         scroll.addView(content)
-        root.addView(scroll)
+        root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
-        if (isGrid) {
+        if (items.isEmpty()) {
+            content.addView(glassEmptyState("This folder is empty", "There are no playable files in this folder.", selectedTab == "Audio"),
+                LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) })
+        } else if (isGrid) {
             val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
             items.forEachIndexed { index, file ->
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
-                    setPadding(dp(8), dp(8), dp(8), dp(9))
-                    background = LiquidGlass.panel(this@MainActivity, 22)
+                    setPadding(dp(9), dp(9), dp(9), dp(11))
+                    background = LiquidGlass.panel(this@MainActivity, 24)
                     elevation = LiquidGlass.elevation(this@MainActivity)
                     clipToOutline = true
                 }
                 val preview = mediaThumbnail(file)
                 if (preview != null) {
-                    card.addView(preview, LinearLayout.LayoutParams(-1, dp(112)))
+                    card.addView(preview, LinearLayout.LayoutParams(-1, dp(124)))
                 } else {
-                    card.addView(mediaTypePlaceholder(file.isAudio), LinearLayout.LayoutParams(-1, dp(112)))
+                    card.addView(mediaTypePlaceholder(file.isAudio), LinearLayout.LayoutParams(-1, dp(124)))
                 }
                 card.addView(label(file.name, 14, text, true).apply {
                     maxLines = 2
                     ellipsize = android.text.TextUtils.TruncateAt.END
                     setPadding(dp(2), dp(7), dp(2), 0)
                 })
-                card.addView(label(formatDuration(file.duration), 12, muted, false).apply {
-                    setPadding(dp(2), dp(3), dp(2), 0)
-                })
+                card.addView(label(formatDuration(file.duration), 12, muted, true).apply {
+                    setPadding(dp(8), dp(4), dp(8), dp(4))
+                    background = LiquidGlass.button(this@MainActivity, false)
+                }, LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(5) })
                 card.setOnClickListener { playItems(items, index) }
                 val params = GridLayout.LayoutParams().apply {
                     width = 0
@@ -736,8 +748,8 @@ class MainActivity : AppCompatActivity() {
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(10), dp(9), dp(10), dp(9))
-                    background = LiquidGlass.panel(this@MainActivity, 20)
+                    setPadding(dp(11), dp(10), dp(11), dp(10))
+                    background = LiquidGlass.panel(this@MainActivity, 22)
                     elevation = LiquidGlass.elevation(this@MainActivity)
                     clipToOutline = true
                 }
@@ -753,7 +765,10 @@ class MainActivity : AppCompatActivity() {
                     maxLines = 2
                     ellipsize = android.text.TextUtils.TruncateAt.END
                 })
-                details.addView(label(formatDuration(file.duration), 12, muted, false))
+                details.addView(label(formatDuration(file.duration), 12, muted, true).apply {
+                    setPadding(dp(8), dp(4), dp(8), dp(4))
+                    background = LiquidGlass.button(this@MainActivity, false)
+                })
                 row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
                 content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
                 row.setOnClickListener { playItems(items, index) }
@@ -761,15 +776,41 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun glassEmptyState(title: String, message: String, isAudio: Boolean): LinearLayout =
+        LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(22), dp(28), dp(22), dp(28))
+            background = LiquidGlass.panel(this@MainActivity, 26)
+            elevation = LiquidGlass.elevation(this@MainActivity)
+            val symbol = ImageView(this@MainActivity).apply {
+                setImageResource(if (isAudio) R.drawable.pl_ic_audiotrack else R.drawable.pl_ic_play_arrow)
+                imageTintList = android.content.res.ColorStateList.valueOf(text)
+                contentDescription = if (isAudio) "Audio library" else "Video library"
+                scaleType = ImageView.ScaleType.CENTER_INSIDE
+            }
+            addView(symbol, LinearLayout.LayoutParams(dp(42), dp(42)).apply { bottomMargin = dp(13) })
+            addView(label(title, 17, text, true).apply {
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+            })
+            addView(label(message, 13, muted, false).apply {
+                gravity = Gravity.CENTER
+                textAlignment = View.TEXT_ALIGNMENT_CENTER
+                maxLines = 3
+                setPadding(0, dp(7), 0, 0)
+            })
+        }
+
     private fun mediaTypePlaceholder(isAudio: Boolean): FrameLayout = FrameLayout(this).apply {
-        background = LiquidGlass.controlPanel(this@MainActivity, 18)
+        background = LiquidGlass.thumbnail(this@MainActivity, 18)
         val symbol = ImageView(this@MainActivity).apply {
             setImageResource(if (isAudio) R.drawable.pl_ic_audiotrack else R.drawable.pl_ic_play_arrow)
-            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            imageTintList = android.content.res.ColorStateList.valueOf(text)
             contentDescription = if (isAudio) "Audio" else "Video"
             scaleType = ImageView.ScaleType.CENTER_INSIDE
         }
-        addView(symbol, FrameLayout.LayoutParams(dp(34), dp(34), Gravity.CENTER))
+        addView(symbol, FrameLayout.LayoutParams(dp(36), dp(36), Gravity.CENTER))
     }
 
     private fun folderThumbnail(items: List<MediaFile>): ImageView? {
@@ -2086,21 +2127,17 @@ class MainActivity : AppCompatActivity() {
             val content = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(8), dp(6), dp(8), dp(6))
-                background = GradientDrawable().apply {
-                    setColor(0xBF000000.toInt())
-                    cornerRadius = dp(14).toFloat()
-                    setStroke(dp(1), LiquidGlass.color(this@MainActivity, R.color.player_divider))
-                }
+                background = LiquidGlass.panel(this@MainActivity, 18)
             }
             labels.forEachIndexed { index, labelText ->
                 val item = TextView(this).apply {
                     val selected = labelText.startsWith("✓ ")
                     val displayText = labelText.removePrefix("✓ ")
                     text = if (selected) android.text.SpannableString("✓  $displayText").apply {
-                        setSpan(android.text.style.ForegroundColorSpan(LiquidGlass.color(this@MainActivity, R.color.player_accent)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        setSpan(android.text.style.ForegroundColorSpan(LiquidGlass.color(this@MainActivity, R.color.player_primary)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     } else displayText
                     textSize = 14f
-                    setTextColor(Color.WHITE)
+                    setTextColor(LiquidGlass.color(this@MainActivity, R.color.player_primary))
                     gravity = Gravity.CENTER_VERTICAL
                     val icon = when (displayText) {
                         "Audio" -> R.drawable.ic_player_audio
