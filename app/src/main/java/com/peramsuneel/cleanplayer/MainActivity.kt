@@ -582,25 +582,93 @@ class MainActivity : AppCompatActivity() {
         onlineMode = false
         currentFolder = folder
         root.removeAllViews()
-        val head = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(16), dp(14), dp(16), dp(10)) }
-        val back = button("‹", false); head.addView(back, LinearLayout.LayoutParams(dp(48), dp(44))); back.setOnClickListener { showHome() }
-        head.addView(label(folder, 21, text, true))
+
+        val head = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(10))
+        }
+        val back = button("‹", false)
+        head.addView(back, LinearLayout.LayoutParams(dp(48), dp(44)))
+        back.setOnClickListener { showHome() }
+        head.addView(label(folder, 21, text, true), LinearLayout.LayoutParams(0, -2, 1f))
+        val viewButton = button(if (isGrid) "▦" else "☷", false)
+        viewButton.contentDescription = "Switch folder grid or list view"
+        head.addView(viewButton, LinearLayout.LayoutParams(dp(46), dp(42)))
+        viewButton.setOnClickListener {
+            isGrid = !isGrid
+            getSharedPreferences("clean_player_preferences", MODE_PRIVATE)
+                .edit().putBoolean("grid_view", isGrid).apply()
+            showFolder(folder, items)
+        }
         root.addView(head)
+
         val scroll = ScrollView(this)
-        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(16), dp(5), dp(16), dp(20)) }
-        scroll.addView(list); root.addView(scroll)
-        items.forEachIndexed { index, file ->
-            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(9), dp(10), dp(9)); setBackgroundColor(panel) }
-            val preview = mediaThumbnail(file)
-            if (preview != null) row.addView(preview, LinearLayout.LayoutParams(dp(104), dp(68)).apply { marginEnd = dp(12) })
-            else row.addView(label(if (file.isAudio) "♫" else "▶", 27, accent, true), LinearLayout.LayoutParams(dp(104), dp(68)).apply { gravity = Gravity.CENTER_VERTICAL })
-            val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            details.addView(label(file.name, 15, text, true).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
-            details.addView(label(formatDuration(file.duration), 12, muted, false))
-            row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
-            val lp = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) }
-            list.addView(row, lp)
-            row.setOnClickListener { playItems(items, index) }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(5), dp(16), dp(20))
+        }
+        scroll.addView(content)
+        root.addView(scroll)
+
+        if (isGrid) {
+            val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
+            items.forEachIndexed { index, file ->
+                val card = LinearLayout(this).apply {
+                    orientation = LinearLayout.VERTICAL
+                    setPadding(dp(8), dp(8), dp(8), dp(9))
+                    setBackgroundColor(panel)
+                }
+                val preview = mediaThumbnail(file)
+                if (preview != null) {
+                    card.addView(preview, LinearLayout.LayoutParams(-1, dp(112)))
+                } else {
+                    card.addView(label(if (file.isAudio) "♫" else "▶", 32, accent, true).apply {
+                        gravity = Gravity.CENTER
+                    }, LinearLayout.LayoutParams(-1, dp(112)))
+                }
+                card.addView(label(file.name, 14, text, true).apply {
+                    maxLines = 2
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    setPadding(dp(2), dp(7), dp(2), 0)
+                })
+                card.addView(label(formatDuration(file.duration), 12, muted, false).apply {
+                    setPadding(dp(2), dp(3), dp(2), 0)
+                })
+                card.setOnClickListener { playItems(items, index) }
+                val params = GridLayout.LayoutParams().apply {
+                    width = 0
+                    columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f)
+                    setMargins(dp(4), dp(4), dp(4), dp(4))
+                }
+                grid.addView(card, params)
+            }
+            content.addView(grid)
+        } else {
+            items.forEachIndexed { index, file ->
+                val row = LinearLayout(this).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    gravity = Gravity.CENTER_VERTICAL
+                    setPadding(dp(10), dp(9), dp(10), dp(9))
+                    setBackgroundColor(panel)
+                }
+                val preview = mediaThumbnail(file)
+                if (preview != null) {
+                    row.addView(preview, LinearLayout.LayoutParams(dp(104), dp(68)).apply { marginEnd = dp(12) })
+                } else {
+                    row.addView(label(if (file.isAudio) "♫" else "▶", 27, accent, true),
+                        LinearLayout.LayoutParams(dp(104), dp(68)).apply { gravity = Gravity.CENTER_VERTICAL })
+                }
+                val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+                details.addView(label(file.name, 15, text, true).apply {
+                    maxLines = 2
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                })
+                details.addView(label(formatDuration(file.duration), 12, muted, false))
+                row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
+                content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
+                row.setOnClickListener { playItems(items, index) }
+            }
         }
     }
 
