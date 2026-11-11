@@ -47,7 +47,8 @@ internal class NewPlayerOverlay(
         val muteButton: ImageButton,
         val rotationButton: ImageButton,
         val repeatButton: ImageButton,
-        val lockButton: ImageButton
+        val lockButton: ImageButton,
+        val titleView: TextView
     )
 
     private fun dp(value: Int): Int = (value * context.resources.displayMetrics.density + .5f).toInt()
@@ -249,7 +250,7 @@ internal class NewPlayerOverlay(
             top, bottom, play,
             toolbar.tag.let { (it as Array<*>)[0] as ImageButton },
             toolbar.tag.let { (it as Array<*>)[1] as ImageButton },
-            repeat, lock
+            repeat, lock, toolbar.getChildAt(1) as TextView
         )
     }
 }
