@@ -102,6 +102,7 @@ private const val PLAYER_BOTTOM_ROW_LAYOUT_ENABLED = true
 private const val PLAYER_TOP_ROW_LAYOUT_ENABLED = true
 private const val PLAYER_ICON_ROW_LAYOUT_ENABLED = true
 private const val PLAYER_COMPACT_BOTTOM_ENABLED = true
+private const val PLAYER_PERCENT_ALIGNMENT_ENABLED = true
 internal const val NEW_PLAYER_PIP_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)

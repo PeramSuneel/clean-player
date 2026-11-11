@@ -99,8 +99,9 @@ internal class NewPlayerOverlay(
         }
 
         // Percent positions are relative to the actual player surface, not a device-size preset.
-        val topTen = horizontalGuide(top, .10f)
-        val optionsLine = horizontalGuide(top, .63f)
+        val landscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        val topTen = horizontalGuide(top, if (PLAYER_PERCENT_ALIGNMENT_ENABLED && landscape) .10f else .08f)
+        val optionsLine = horizontalGuide(top, if (PLAYER_PERCENT_ALIGNMENT_ENABLED && landscape) .63f else .61f)
         val backCenter = verticalGuide(top, .09f)
         val titleStart = verticalGuide(top, .13f)
         val topRight = verticalGuide(top, .96f)
@@ -212,8 +213,8 @@ internal class NewPlayerOverlay(
         topSet.connect(optionsScroll.id, ConstraintSet.BOTTOM, optionsLine.id, ConstraintSet.BOTTOM)
         topSet.applyTo(top)
 
-        val seekLine = horizontalGuide(bottom, .75f)
-        val controlsLine = horizontalGuide(bottom, .90f)
+        val seekLine = horizontalGuide(bottom, if (PLAYER_PERCENT_ALIGNMENT_ENABLED && landscape) .75f else .82f)
+        val controlsLine = horizontalGuide(bottom, if (PLAYER_PERCENT_ALIGNMENT_ENABLED && landscape) .90f else .93f)
         val seekStart = verticalGuide(bottom, .03f)
         val seekEnd = verticalGuide(bottom, .97f)
         val leftEdge = verticalGuide(bottom, .03f)
