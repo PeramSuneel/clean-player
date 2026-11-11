@@ -96,6 +96,7 @@ private const val LANDSCAPE_COMPACT_CONTROLS_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
+private const val NEW_PLAYER_UI_ENABLED = false
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -296,10 +297,10 @@ class MainActivity : AppCompatActivity() {
     private var onlineResults: List<OnlineSearchResult> = emptyList()
     private var homeContent: LinearLayout? = null
     private var onlineSection: LinearLayout? = null
-    private var playerControls: LinearLayout? = null
+    private var playerControls: View? = null
     private var playerSeekBar: PlayerSeekBar? = null
     private var seekBarUpdateRunnable: Runnable? = null
-    private var playerTopBar: LinearLayout? = null
+    private var playerTopBar: View? = null
     private var playerSeekIndicator: TextView? = null
     private var seekPreviewHideRunnable: Runnable? = null
     private var playerTitleView: TextView? = null
@@ -856,6 +857,17 @@ class MainActivity : AppCompatActivity() {
         }
         pv.addView(gestureSurface, FrameLayout.LayoutParams(-1, -1))
 
+        if (NEW_PLAYER_UI_ENABLED) {
+            try {
+                buildNewPlayerUi(pv)
+                return
+            } catch (_: Exception) {
+                // The isolated v3 overlay must never interrupt playback; fall back to the existing controls.
+                playerTopBar = null
+                playerControls = null
+            }
+        }
+
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             clipChildren = false
@@ -1179,6 +1191,200 @@ class MainActivity : AppCompatActivity() {
      * Main, search and folder surfaces draw edge-to-edge, but keep interactive content
      * inside the status bar, navigation bar and display cutout safe areas.
      */
+    /**
+     * V3 controls are isolated from the legacy controls and reuse the existing ExoPlayer,
+     * track menus, seeking callbacks, rotation and playback state.
+     */
+    private fun buildNewPlayerUi(pv: PlayerView) {
+        val seek = PlayerSeekBar(
+            this,
+            { millis -> formatPlayerTime(millis) },
+            { target ->
+                try {
+                    val exo = player ?: return@PlayerSeekBar
+                    exo.setSeekParameters(SeekParameters.EXACT)
+                    exo.seekTo(target)
+                } catch (_: Exception) { }
+            },
+            { interacting ->
+                try {
+                    val exo = player
+                    if (interacting) {
+                        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                        seekWasPlaying = exo?.playWhenReady == true
+                        exo?.pause()
+                        if (LIVE_SCRUBBING_ENABLED) exo?.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                        showPlayerControls()
+                    } else {
+                        if (LIVE_SCRUBBING_ENABLED) exo?.setSeekParameters(SeekParameters.EXACT)
+                        if (seekWasPlaying) exo?.play()
+                        seekWasPlaying = false
+                        scheduleControlsHide()
+                    }
+                } catch (_: Exception) { }
+            },
+            { targetMs, thumbX, active -> updateSeekPreview(targetMs, thumbX, active) },
+            { target ->
+                try {
+                    val exo = player ?: return@PlayerSeekBar
+                    val uri = exo.currentMediaItem?.localConfiguration?.uri
+                    val online = uri?.scheme.equals("http", true) || uri?.scheme.equals("https", true)
+                    val now = SystemClock.elapsedRealtime()
+                    if (!online && now - lastLiveSeekAt >= 200L) {
+                        lastLiveSeekAt = now
+                        exo.setSeekParameters(SeekParameters.CLOSEST_SYNC)
+                        exo.seekTo(target)
+                    }
+                } catch (_: Exception) { }
+            }
+        )
+        playerSeekBar = seek
+
+        val ui = NewPlayerOverlay(
+            this,
+            currentPlayerTitle,
+            seek,
+            onBack = { player?.pause(); showHome() },
+            onScreenshot = { Toast.makeText(this, "Screenshot not available", Toast.LENGTH_SHORT).show() },
+            onMute = { button ->
+                try {
+                    val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
+                    val current = manager.getStreamVolume(AudioManager.STREAM_MUSIC)
+                    val maximum = manager.getStreamMaxVolume(AudioManager.STREAM_MUSIC)
+                    if (current > 0) {
+                        lastAudibleVolume = current
+                        manager.setStreamVolume(AudioManager.STREAM_MUSIC, 0, 0)
+                    } else {
+                        val restore = lastAudibleVolume.takeIf { it > 0 } ?: (maximum / 2).coerceAtLeast(1)
+                        manager.setStreamVolume(AudioManager.STREAM_MUSIC, restore.coerceAtMost(maximum), 0)
+                    }
+                    val muted = manager.getStreamVolume(AudioManager.STREAM_MUSIC) == 0
+                    button.setImageResource(if (muted) R.drawable.ic_v3_volume_off else R.drawable.ic_v3_volume_up)
+                    button.contentDescription = if (muted) "Unmute audio" else "Mute audio"
+                    showPlayerControls(); scheduleControlsHide()
+                } catch (_: Exception) { }
+            },
+            onRotate = { button ->
+                try {
+                    rotationManuallySelected = true
+                    applyPlayerOrientation(if (playerOrientation == ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                        ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else ActivityInfo.SCREEN_ORIENTATION_PORTRAIT)
+                    showPlayerControls(); scheduleControlsHide()
+                } catch (_: Exception) { }
+            },
+            onAudio = { showAudioTrackMenu(it); showPlayerControls() },
+            onSubtitles = { showSubtitleTrackMenu(it); showPlayerControls() },
+            onSpeed = { showPlaybackSpeedMenu(it); showPlayerControls() },
+            onPlaylist = { anchor ->
+                try {
+                    if (queue.isEmpty()) {
+                        Toast.makeText(this, "No folder playlist available", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val labels = queue.mapIndexed { index, file ->
+                            (if (index == currentIndex) "▶ " else "") + file.name
+                        }
+                        val actions = queue.mapIndexed { index, _ ->
+                            { player?.seekTo(index, 0L); player?.play(); currentIndex = index; updatePlayerTitle() }
+                        }
+                        showPlayerPopup(anchor, labels, actions) { }
+                    }
+                } catch (_: Exception) { }
+            },
+            onFlip = { Toast.makeText(this, "Flip is not enabled in this build", Toast.LENGTH_SHORT).show() },
+            onRepeat = { button ->
+                try {
+                    val exo = player ?: return@NewPlayerOverlay
+                    exo.repeatMode = if (exo.repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+                    button.setImageResource(if (exo.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.ic_v3_repeat_one else R.drawable.ic_v3_repeat)
+                    button.imageTintList = android.content.res.ColorStateList.valueOf(if (exo.repeatMode == Player.REPEAT_MODE_ONE) 0xFF2F80ED.toInt() else text)
+                    showPlayerControls(); scheduleControlsHide()
+                } catch (_: Exception) { }
+            },
+            onLock = { Toast.makeText(this, "Screen lock is not enabled in this build", Toast.LENGTH_SHORT).show() },
+            onPrevious = { player?.seekToPreviousMediaItem(); scheduleControlsHide() },
+            onBack10 = { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() },
+            onPlayPause = { button ->
+                try {
+                    player?.let {
+                        if (it.isPlaying) it.pause() else {
+                            if (REPLAY_AT_END_ENABLED && playbackIsAtEnd(it)) it.seekTo(0L)
+                            it.play()
+                        }
+                    }
+                    updatePlayerTitle(); scheduleControlsHide()
+                } catch (_: Exception) { }
+            },
+            onForward10 = { seekBy(10_000L); showSeekFeedback("+10 sec"); scheduleControlsHide() },
+            onNext = { player?.seekToNextMediaItem(); scheduleControlsHide() },
+            onAspect = { showAspectRatioMenu(it); showPlayerControls() }
+        ).build()
+
+        playerTopBar = ui.topLayer
+        playerControls = ui.bottomLayer
+        playPauseButton = ui.playButton
+        playerMuteButton = ui.muteButton
+        rotationButton = ui.rotationButton
+        repeatButton = ui.repeatButton
+        pv.addView(ui.topLayer, FrameLayout.LayoutParams(-1, -1))
+        pv.addView(ui.bottomLayer, FrameLayout.LayoutParams(-1, -1))
+
+        val preview = label("", 13, ContextCompat.getColor(this, R.color.player_primary), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            background = GradientDrawable().apply {
+                setColor(ContextCompat.getColor(this@MainActivity, R.color.player_overlay))
+                cornerRadius = dp(8).toFloat()
+            }
+            visibility = View.GONE
+            elevation = dp(8).toFloat()
+        }
+        pv.addView(preview, FrameLayout.LayoutParams(-2, dp(30)))
+        preview.tag = "seek-preview"
+
+        val indicator = label("", 14, ContextCompat.getColor(this, R.color.player_primary), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(16), dp(10), dp(16), dp(10))
+            background = GradientDrawable().apply {
+                setColor(0xBF000000.toInt())
+                cornerRadius = dp(24).toFloat()
+            }
+            visibility = View.GONE
+        }
+        playerSeekIndicator = indicator
+        pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+
+        val zoomIndicator = label("100%", 12, ContextCompat.getColor(this, R.color.player_primary), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(9), dp(5), dp(9), dp(5))
+            background = GradientDrawable().apply {
+                setColor(0xBF000000.toInt())
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.player_divider))
+            }
+            visibility = View.GONE
+            elevation = dp(8).toFloat()
+        }
+        zoomLabel = zoomIndicator
+        pv.addView(zoomIndicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+
+        ViewCompat.setOnApplyWindowInsetsListener(pv) { _, insets ->
+            val cutout = insets.getInsets(WindowInsetsCompat.Type.displayCutout())
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            val gestureBottom = insets.getInsets(WindowInsetsCompat.Type.systemGestures()).bottom
+            val safeLeft = maxOf(cutout.left, bars.left)
+            val safeTop = maxOf(cutout.top, bars.top)
+            val safeRight = maxOf(cutout.right, bars.right)
+            val safeBottom = maxOf(gestureBottom, bars.bottom, cutout.bottom)
+            ui.topLayer.setPadding(safeLeft, safeTop, safeRight, 0)
+            ui.bottomLayer.setPadding(safeLeft, 0, safeRight, safeBottom)
+            insets
+        }
+        ViewCompat.requestApplyInsets(pv)
+        updatePlayerTitle()
+        showPlayerControls()
+        scheduleControlsHide()
+    }
+
     private fun showAudioTrackMenu(anchor: View) {
         val exo = player ?: return
         val options = mutableListOf<Pair<String, (() -> Unit)?>>()
@@ -1870,6 +2076,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applyPlayerLayoutMetrics(orientation: Int) {
+        if (NEW_PLAYER_UI_ENABLED) { playerTopBar?.requestLayout(); playerControls?.requestLayout(); return }
         if (!LANDSCAPE_COMPACT_CONTROLS_ENABLED) return
         val landscape = orientation == Configuration.ORIENTATION_LANDSCAPE
         val rowHeight = dp(if (landscape) 40 else 48)
