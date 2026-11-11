@@ -1293,11 +1293,13 @@ class MainActivity : AppCompatActivity() {
             onFlip = { Toast.makeText(this, "Flip is not enabled in this build", Toast.LENGTH_SHORT).show() },
             onRepeat = { button ->
                 try {
-                    val exo = player ?: return@NewPlayerOverlay
-                    exo.repeatMode = if (exo.repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
-                    button.setImageResource(if (exo.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.ic_v3_repeat_one else R.drawable.ic_v3_repeat)
-                    button.imageTintList = android.content.res.ColorStateList.valueOf(if (exo.repeatMode == Player.REPEAT_MODE_ONE) 0xFF2F80ED.toInt() else text)
-                    showPlayerControls(); scheduleControlsHide()
+                    val exo = player
+                    if (exo != null) {
+                        exo.repeatMode = if (exo.repeatMode == Player.REPEAT_MODE_ONE) Player.REPEAT_MODE_OFF else Player.REPEAT_MODE_ONE
+                        button.setImageResource(if (exo.repeatMode == Player.REPEAT_MODE_ONE) R.drawable.ic_v3_repeat_one else R.drawable.ic_v3_repeat)
+                        button.imageTintList = android.content.res.ColorStateList.valueOf(if (exo.repeatMode == Player.REPEAT_MODE_ONE) 0xFF2F80ED.toInt() else text)
+                        showPlayerControls(); scheduleControlsHide()
+                    }
                 } catch (_: Exception) { }
             },
             onLock = { Toast.makeText(this, "Screen lock is not enabled in this build", Toast.LENGTH_SHORT).show() },
