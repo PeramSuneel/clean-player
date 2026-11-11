@@ -20,7 +20,6 @@ internal class NewPlayerOverlay(
     private val title: String,
     private val seekView: View,
     private val onBack: (View) -> Unit,
-    private val onScreenshot: (View) -> Unit,
     private val onMute: (ImageButton) -> Unit,
     private val onRotate: (ImageButton) -> Unit,
     private val onAudio: (View) -> Unit,
@@ -137,9 +136,6 @@ internal class NewPlayerOverlay(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
         }
-        val camera = iconButton(R.drawable.ic_v3_photo_camera, "Screenshot")
-        rightActions.addView(camera, LinearLayout.LayoutParams(dp(48), dp(48)))
-        camera.setOnClickListener { onScreenshot(it) }
         val mute = iconButton(R.drawable.ic_v3_volume_up, "Mute")
         rightActions.addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
         mute.setOnClickListener { onMute(mute) }

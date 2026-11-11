@@ -85,7 +85,7 @@ private const val AUDIO_TRACK_SESSION_MEMORY_ENABLED = true
 private const val SPEED_LABEL_LIVE_ENABLED = true
 private const val SCREENSHOT_ENABLED = false
 private const val REPEAT_ONE_ENABLED = false
-private const val AUDIO_ONLY_ENABLED = true
+private const val AUDIO_ONLY_ENABLED = false
 private const val LIVE_SCRUBBING_ENABLED = true
 private const val OPTIONS_ROW_MEDIA_ACTIONS_ENABLED = false
 private const val PLAYER_TOP_OPTIONS_LAYOUT_ENABLED = true
@@ -986,12 +986,6 @@ class MainActivity : AppCompatActivity() {
         }
         playerSpeedLabel = speed
         expandedOptions.addView(speed, LinearLayout.LayoutParams(dp(54), dp(48)))
-        val audioOnly = playerOverlayButton(R.drawable.ic_player_audio_only).apply {
-            contentDescription = "Toggle audio-only mode"
-            setOnClickListener { toggleAudioOnly(); showPlayerControls(); scheduleControlsHide() }
-        }
-        expandedOptions.addView(audioOnly, LinearLayout.LayoutParams(dp(48), dp(48)))
-
         val optionsScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -1334,7 +1328,6 @@ class MainActivity : AppCompatActivity() {
             currentPlayerTitle,
             seek,
             onBack = { player?.pause(); showHome() },
-            onScreenshot = { savePlayerScreenshot(pv) },
             onMute = { button ->
                 try {
                     val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
