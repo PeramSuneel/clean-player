@@ -119,26 +119,26 @@ private class PlayerSeekBar(
 ) : View(context) {
     private val density = resources.displayMetrics.density
     private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = LiquidGlass.color(context, R.color.player_divider)
+        color = 0x77FFFFFF.toInt()
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val bufferedPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = LiquidGlass.color(context, R.color.player_buffered)
+        color = 0x99FFFFFF.toInt()
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val progressPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = LiquidGlass.color(context, R.color.player_accent)
+        color = android.graphics.Color.WHITE
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val thumbPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = LiquidGlass.color(context, R.color.player_primary)
+        color = android.graphics.Color.WHITE
         style = android.graphics.Paint.Style.FILL
     }
     private val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = LiquidGlass.color(context, R.color.player_primary)
+        color = android.graphics.Color.WHITE
         textSize = 11f * resources.displayMetrics.scaledDensity
     }
     private var durationMs = 0L
@@ -478,7 +478,11 @@ class MainActivity : AppCompatActivity() {
         manualOverrideBaselineDegrees = OrientationEventListener.ORIENTATION_UNKNOWN
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         WindowCompat.setDecorFitsSystemWindows(window, false)
-        WindowInsetsControllerCompat(window, window.decorView).show(WindowInsetsCompat.Type.systemBars())
+        WindowInsetsControllerCompat(window, window.decorView).apply {
+            show(WindowInsetsCompat.Type.systemBars())
+            isAppearanceLightStatusBars = !isDark
+            isAppearanceLightNavigationBars = !isDark
+        }
         window.statusBarColor = bg
         window.navigationBarColor = bg
         root.removeAllViews()
