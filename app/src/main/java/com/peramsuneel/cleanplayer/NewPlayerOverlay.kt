@@ -4,6 +4,7 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import androidx.constraintlayout.widget.ConstraintSet
 import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
@@ -12,7 +13,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.constraintlayout.widget.ConstraintSet
-import androidx.constraintlayout.widget.Guideline
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.ViewCompat
 
 /** Isolated percentage-guideline player overlay. Playback actions remain owned by MainActivity. */
 internal class NewPlayerOverlay(
@@ -57,8 +59,8 @@ internal class NewPlayerOverlay(
             imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
             contentDescription = description
             scaleType = android.widget.ImageView.ScaleType.CENTER_INSIDE
-            val iconPx = context.resources.getDimensionPixelSize(R.dimen.player_control_icon_size)
-            val inset = ((dp(size) - iconPx) / 2).coerceAtLeast(dp(8))
+            val iconPx = dp(24)
+            val inset = ((dp(size) - iconPx) / 2).coerceAtLeast(0)
             setPadding(inset, inset, inset, inset)
             background = android.graphics.drawable.RippleDrawable(
                 android.content.res.ColorStateList.valueOf(0x33FFFFFF), null, null
@@ -68,28 +70,17 @@ internal class NewPlayerOverlay(
             stateListAnimator = null
         }
 
-    private fun horizontalGuide(layout: ConstraintLayout, percent: Float): Guideline =
-        Guideline(context).also {
-            layout.addView(it, ConstraintLayout.LayoutParams(0, 0).apply {
-                orientation = ConstraintLayout.LayoutParams.HORIZONTAL
-                guidePercent = percent
-            })
-        }
-
-    private fun verticalGuide(layout: ConstraintLayout, percent: Float): Guideline =
-        Guideline(context).also {
-            layout.addView(it, ConstraintLayout.LayoutParams(0, 0).apply {
-                orientation = ConstraintLayout.LayoutParams.VERTICAL
-                guidePercent = percent
-            })
-        }
-
     fun build(): Result {
         val top = ConstraintLayout(context).apply {
             id = View.generateViewId()
             clipChildren = false
             clipToPadding = false
             setBackgroundColor(Color.TRANSPARENT)
+            ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+                val topInset = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top
+                view.setPadding(0, topInset, 0, 0)
+                insets
+            }
         }
         val bottom = ConstraintLayout(context).apply {
             id = View.generateViewId()
@@ -98,16 +89,6 @@ internal class NewPlayerOverlay(
             setBackgroundColor(Color.TRANSPARENT)
         }
 
-        // Percent positions are relative to the actual player surface, not a device-size preset.
-        val landscape = context.resources.configuration.orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        val topTen = horizontalGuide(top, if (PLAYER_PERCENT_ALIGNMENT_ENABLED && landscape) .10f else .08f)
-        val optionsLine = horizontalGuide(top, if (PLAYER_PERCENT_ALIGNMENT_ENABLED && landscape) .63f else .61f)
-        val backCenter = verticalGuide(top, .09f)
-        val titleStart = verticalGuide(top, .13f)
-        val topRight = verticalGuide(top, .96f)
-        val optionsStart = verticalGuide(top, .03f)
-        val optionsEnd = verticalGuide(top, .95f)
-
         val topShade = View(context).apply {
             id = View.generateViewId()
             background = GradientDrawable(
@@ -115,12 +96,10 @@ internal class NewPlayerOverlay(
                 intArrayOf(0xB8000000.toInt(), 0x00000000)
             )
         }
-        top.addView(topShade, ConstraintLayout.LayoutParams(0, dp(80)))
+        top.addView(topShade, ConstraintLayout.LayoutParams(0, dp(136)))
 
-        val back = iconButton(R.drawable.pl_ic_arrow_back, "Back")
-        back.id = View.generateViewId()
+        val back = iconButton(R.drawable.pl_ic_arrow_back, "Back").apply { id = View.generateViewId() }
         top.addView(back, ConstraintLayout.LayoutParams(dp(48), dp(48)))
-
         val name = TextView(context).apply {
             id = View.generateViewId()
             text = title
@@ -139,35 +118,13 @@ internal class NewPlayerOverlay(
         }
         val aspect = iconButton(R.drawable.pl_ic_aspect_ratio, "Aspect ratio")
         if (PLAYER_TOP_ROW_LAYOUT_ENABLED) {
-            try {
-                rightActions.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
-                aspect.setOnClickListener { onAspect(aspect) }
-            } catch (_: Exception) { aspect.visibility = View.GONE }
+            rightActions.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
+            aspect.setOnClickListener { onAspect(aspect) }
         }
         val mute = iconButton(R.drawable.pl_ic_volume_up, "Mute")
         rightActions.addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
         mute.setOnClickListener { onMute(mute) }
         top.addView(rightActions, ConstraintLayout.LayoutParams(-2, dp(48)))
-
-        val topSet = ConstraintSet().apply {
-            clone(top)
-            connect(topShade.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
-            connect(topShade.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-            connect(topShade.id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP)
-            connect(back.id, ConstraintSet.TOP, topTen.id, ConstraintSet.TOP)
-            connect(back.id, ConstraintSet.BOTTOM, topTen.id, ConstraintSet.BOTTOM)
-            connect(back.id, ConstraintSet.START, backCenter.id, ConstraintSet.START)
-            connect(back.id, ConstraintSet.END, backCenter.id, ConstraintSet.START)
-            setHorizontalBias(back.id, .5f)
-            connect(name.id, ConstraintSet.START, titleStart.id, ConstraintSet.START)
-            connect(name.id, ConstraintSet.END, rightActions.id, ConstraintSet.START, dp(4))
-            connect(name.id, ConstraintSet.TOP, topTen.id, ConstraintSet.TOP)
-            connect(name.id, ConstraintSet.BOTTOM, topTen.id, ConstraintSet.BOTTOM)
-            connect(rightActions.id, ConstraintSet.END, topRight.id, ConstraintSet.START)
-            connect(rightActions.id, ConstraintSet.TOP, topTen.id, ConstraintSet.TOP)
-            connect(rightActions.id, ConstraintSet.BOTTOM, topTen.id, ConstraintSet.BOTTOM)
-        }
-        back.setOnClickListener(onBack)
 
         val optionsScroll = HorizontalScrollView(context).apply {
             id = View.generateViewId()
@@ -176,6 +133,7 @@ internal class NewPlayerOverlay(
             clipChildren = false
             clipToPadding = false
             isFillViewport = true
+            setPadding(dp(8), 0, dp(8), 0)
         }
         val options = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -188,45 +146,40 @@ internal class NewPlayerOverlay(
             return button
         }
 
-        val chevron = option(R.drawable.ic_v3_chevron_right, "Collapse or expand options") {
-            try {
-                val target = if (optionsScroll.scrollX <= 0)
-                    (options.width - optionsScroll.width).coerceAtLeast(0) else 0
-                optionsScroll.smoothScrollTo(target, 0)
-                chevronRotation(it, target > 0)
-            } catch (_: Exception) { }
-        }
         option(R.drawable.pl_ic_audiotrack, "Audio track", onAudio)
         val subtitleButton = option(R.drawable.pl_ic_closed_caption, "Subtitles", onSubtitles)
         subtitleButton.tag = "player-subtitles-button"
         option(R.drawable.pl_ic_speed, "Playback speed", onSpeed)
-        if (NEW_PLAYER_PIP_ENABLED) {
-            option(R.drawable.pl_ic_picture_in_picture_alt, "Picture in picture", onPictureInPicture)
-        }
+        if (NEW_PLAYER_PIP_ENABLED) option(R.drawable.pl_ic_picture_in_picture_alt, "Picture in picture", onPictureInPicture)
         option(R.drawable.pl_ic_playlist_play, "Playlist", onPlaylist)
         option(R.drawable.pl_ic_flip, "Flip video", onFlip)
         val repeat = iconButton(R.drawable.pl_ic_repeat, "Repeat")
         options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)))
         repeat.setOnClickListener { onRepeat(repeat) }
-
         optionsScroll.addView(options, ViewGroup.LayoutParams(-2, dp(48)))
         top.addView(optionsScroll, ConstraintLayout.LayoutParams(0, dp(48)))
-        try {
-            optionsScroll.visibility = if (PLAYER_ICON_ROW_LAYOUT_ENABLED) View.VISIBLE else View.GONE
-        } catch (_: Exception) { optionsScroll.visibility = View.GONE }
-        topSet.connect(optionsScroll.id, ConstraintSet.START, optionsStart.id, ConstraintSet.START)
-        topSet.connect(optionsScroll.id, ConstraintSet.END, optionsEnd.id, ConstraintSet.START)
-        topSet.connect(optionsScroll.id, ConstraintSet.TOP, optionsLine.id, ConstraintSet.TOP)
-        topSet.connect(optionsScroll.id, ConstraintSet.BOTTOM, optionsLine.id, ConstraintSet.BOTTOM)
-        topSet.applyTo(top)
 
-        val seekLine = horizontalGuide(bottom, if (PLAYER_PERCENT_ALIGNMENT_ENABLED && landscape) .75f else .82f)
-        val controlsLine = horizontalGuide(bottom, if (PLAYER_PERCENT_ALIGNMENT_ENABLED && landscape) .90f else .93f)
-        val seekStart = verticalGuide(bottom, .03f)
-        val seekEnd = verticalGuide(bottom, .97f)
-        val leftEdge = verticalGuide(bottom, .03f)
-        val rightEdge = verticalGuide(bottom, .97f)
-        val bottomShadeHeight = if (PLAYER_COMPACT_BOTTOM_ENABLED) dp(64) else dp(80)
+        ConstraintSet().apply {
+            clone(top)
+            connect(topShade.id, START, PARENT_ID, START)
+            connect(topShade.id, END, PARENT_ID, END)
+            connect(topShade.id, TOP, PARENT_ID, TOP)
+            connect(back.id, START, PARENT_ID, START, dp(8))
+            connect(back.id, TOP, PARENT_ID, TOP, dp(8))
+            connect(name.id, START, back.id, END, dp(4))
+            connect(name.id, END, rightActions.id, START, dp(4))
+            connect(name.id, TOP, back.id, TOP)
+            connect(name.id, BOTTOM, back.id, BOTTOM)
+            connect(rightActions.id, END, PARENT_ID, END, dp(8))
+            connect(rightActions.id, TOP, back.id, TOP)
+            connect(rightActions.id, BOTTOM, back.id, BOTTOM)
+            connect(optionsScroll.id, START, PARENT_ID, START)
+            connect(optionsScroll.id, END, PARENT_ID, END)
+            connect(optionsScroll.id, TOP, back.id, BOTTOM, dp(8))
+            applyTo(top)
+        }
+        back.setOnClickListener(onBack)
+
         val bottomShade = View(context).apply {
             id = View.generateViewId()
             background = GradientDrawable(
@@ -234,13 +187,14 @@ internal class NewPlayerOverlay(
                 intArrayOf(0x00000000, 0xB8000000.toInt())
             )
         }
-        bottom.addView(bottomShade, ConstraintLayout.LayoutParams(0, bottomShadeHeight))
-
+        bottom.addView(bottomShade, ConstraintLayout.LayoutParams(0, dp(116)))
         seekView.id = View.generateViewId()
-        bottom.addView(seekView, ConstraintLayout.LayoutParams(0, if (PLAYER_COMPACT_BOTTOM_ENABLED) dp(48) else dp(52)))
+        bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(24)))
 
         val lock = iconButton(R.drawable.pl_ic_lock, "Lock controls")
+        lock.id = View.generateViewId()
         val rotate = iconButton(R.drawable.pl_ic_screen_rotation, "Rotate screen")
+        rotate.id = View.generateViewId()
         val group = LinearLayout(context).apply {
             id = View.generateViewId()
             orientation = LinearLayout.HORIZONTAL
@@ -248,18 +202,14 @@ internal class NewPlayerOverlay(
         }
         val back10 = iconButton(R.drawable.pl_ic_fast_rewind, "Back 10 seconds")
         val previous = iconButton(R.drawable.pl_ic_skip_previous, "Previous")
-        val play = iconButton(R.drawable.pl_ic_pause, "Pause", 48)
+        val play = iconButton(R.drawable.pl_ic_pause, "Pause")
         play.background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(0xFF2F80ED.toInt())
         }
         val next = iconButton(R.drawable.pl_ic_skip_next, "Next")
         val forward10 = iconButton(R.drawable.pl_ic_fast_forward, "Forward 10 seconds")
-        val transportButtons = try {
-            if (PLAYER_BOTTOM_ROW_LAYOUT_ENABLED) listOf(back10, previous, play, next, forward10)
-            else listOf(previous, back10, play, forward10, next)
-        } catch (_: Exception) { listOf(previous, back10, play, forward10, next) }
-        transportButtons.forEachIndexed { index, button ->
+        listOf(back10, previous, play, next, forward10).forEachIndexed { index, button ->
             group.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
                 if (index > 0) marginStart = dp(4)
                 if (index < 4) marginEnd = dp(4)
@@ -267,30 +217,25 @@ internal class NewPlayerOverlay(
         }
         bottom.addView(lock, ConstraintLayout.LayoutParams(dp(48), dp(48)))
         bottom.addView(rotate, ConstraintLayout.LayoutParams(dp(48), dp(48)))
-        bottom.addView(group, ConstraintLayout.LayoutParams(-2, dp(56)))
+        bottom.addView(group, ConstraintLayout.LayoutParams(-2, dp(48)))
 
-        val bottomSet = ConstraintSet().apply {
+        ConstraintSet().apply {
             clone(bottom)
-            connect(bottomShade.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
-            connect(bottomShade.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-            connect(bottomShade.id, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
-            connect(seekView.id, ConstraintSet.START, seekStart.id, ConstraintSet.START)
-            connect(seekView.id, ConstraintSet.END, seekEnd.id, ConstraintSet.END)
-            connect(seekView.id, ConstraintSet.TOP, seekLine.id, ConstraintSet.TOP)
-            connect(seekView.id, ConstraintSet.BOTTOM, seekLine.id, ConstraintSet.BOTTOM)
-            connect(lock.id, ConstraintSet.START, leftEdge.id, ConstraintSet.START)
-            connect(lock.id, ConstraintSet.TOP, controlsLine.id, ConstraintSet.TOP)
-            connect(lock.id, ConstraintSet.BOTTOM, controlsLine.id, ConstraintSet.BOTTOM)
-            connect(rotate.id, ConstraintSet.END, rightEdge.id, ConstraintSet.START)
-            connect(rotate.id, ConstraintSet.TOP, controlsLine.id, ConstraintSet.TOP)
-            connect(rotate.id, ConstraintSet.BOTTOM, controlsLine.id, ConstraintSet.BOTTOM)
-            connect(group.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
-            connect(group.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-            connect(group.id, ConstraintSet.TOP, controlsLine.id, ConstraintSet.TOP)
-            connect(group.id, ConstraintSet.BOTTOM, controlsLine.id, ConstraintSet.BOTTOM)
-            setHorizontalBias(group.id, .5f)
+            connect(bottomShade.id, START, PARENT_ID, START)
+            connect(bottomShade.id, END, PARENT_ID, END)
+            connect(bottomShade.id, BOTTOM, PARENT_ID, BOTTOM)
+            connect(group.id, START, PARENT_ID, START)
+            connect(group.id, END, PARENT_ID, END)
+            connect(group.id, BOTTOM, PARENT_ID, BOTTOM, dp(4))
+            connect(lock.id, START, PARENT_ID, START, dp(8))
+            connect(lock.id, BOTTOM, group.id, BOTTOM)
+            connect(rotate.id, END, PARENT_ID, END, dp(8))
+            connect(rotate.id, BOTTOM, group.id, BOTTOM)
+            connect(seekView.id, START, PARENT_ID, START, dp(8))
+            connect(seekView.id, END, PARENT_ID, END, dp(8))
+            connect(seekView.id, BOTTOM, group.id, TOP)
+            applyTo(bottom)
         }
-        bottomSet.applyTo(bottom)
 
         previous.setOnClickListener { onPrevious(it) }
         back10.setOnClickListener { onBack10(it) }
@@ -301,9 +246,5 @@ internal class NewPlayerOverlay(
         lock.setOnClickListener { onLock(lock) }
 
         return Result(top, bottom, play, mute, rotate, repeat, lock, name)
-    }
-
-    private fun chevronRotation(view: View, expanded: Boolean) {
-        view.animate().rotation(if (expanded) 180f else 0f).setDuration(150L).start()
     }
 }
