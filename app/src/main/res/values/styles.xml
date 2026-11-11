@@ -1,0 +1,13 @@
+<resources>
+    <style name="AppTheme" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:colorAccent">@color/player_accent</item>
+        <item name="colorAccent">@color/player_accent</item>
+        <item name="colorControlHighlight">@color/player_ripple</item>
+        <item name="android:colorControlHighlight">@color/player_ripple</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:statusBarColor">@color/player_background</item>
+        <item name="android:navigationBarColor">@color/player_background</item>
+        <item name="android:windowActionModeOverlay">true</item>
+    </style>
+</resources>
