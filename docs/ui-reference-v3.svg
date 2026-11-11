@@ -1,138 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1180" viewBox="0 0 1600 1180">
+<svg xmlns="http://www.w3.org/2000/svg" width="843" height="376" viewBox="0 0 843 376">
 <defs>
- <linearGradient id="bg" x2="0" y2="1"><stop stop-color="#20252b"/><stop offset="1" stop-color="#090b0e"/></linearGradient>
- <linearGradient id="topfade" x2="0" y2="1"><stop stop-color="#000" stop-opacity=".88"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
- <linearGradient id="botfade" x2="0" y2="1"><stop stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".88"/></linearGradient>
- <filter id="shadow"><feGaussianBlur stdDeviation="8"/></filter>
+ <linearGradient id="video" x1="0" y1="0" x2=".8" y2="1"><stop stop-color="#102b20"/><stop offset=".5" stop-color="#193b28"/><stop offset="1" stop-color="#0b2119"/></linearGradient>
+ <linearGradient id="topShade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#000" stop-opacity=".42"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient>
+ <linearGradient id="bottomShade" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".48"/></linearGradient>
  <style>
- .h{font:700 25px Arial;fill:#fff}.sub{font:14px Arial;fill:#b9c0c9}.label{font:700 17px Arial;fill:#fff}.small{font:13px Arial;fill:#d7dce2}.tiny{font:11px Arial;fill:#aeb5be}.time{font:700 13px Arial;fill:#fff}.icon{fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.blue{fill:#2F80ED}.muted{stroke:#8A8F98}
+ .w{fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+ .txt{font-family:Arial,sans-serif;fill:#fff}
+ .time{font-size:16px;font-weight:600}
  </style>
 </defs>
-<rect width="1600" height="1180" fill="#12161b"/>
-<text x="56" y="52" class="h" font-size="30">CLEAN PLAYER — PLAYER CONTROLS V3</text>
-<text x="56" y="80" class="sub">Reference mockup only • black / gray / #2F80ED / white • all measurements are dp at 1× density</text>
-<!-- LANDSCAPE -->
-<text x="56" y="132" class="label">LANDSCAPE • 800 × 360dp</text>
-<rect x="56" y="154" width="1120" height="504" rx="18" fill="#050607" stroke="#59616c" stroke-width="2"/>
-<rect x="58" y="156" width="1116" height="500" rx="16" fill="#202a27"/>
-<g opacity=".5" fill="#42584a"><path d="M58 330 Q210 190 350 290T650 250T900 300T1174 220V656H58Z"/><circle cx="250" cy="280" r="100"/><circle cx="480" cy="250" r="125"/><circle cx="820" cy="300" r="140"/><circle cx="1050" cy="240" r="120"/></g>
-<rect x="58" y="156" width="1116" height="126" fill="url(#topfade)"/>
-<rect x="58" y="530" width="1116" height="126" fill="url(#botfade)"/>
-<!-- top left title -->
-<path class="icon" d="M106 205h-24m0 0 10-10m-10 10 10 10"/>
-<text x="126" y="212" class="h">Rainforest Birds — Video title</text>
-<!-- top right actions -->
-<g class="icon" transform="translate(890 183)"><path d="M0 18V2h25v16M-3 22h31"/><path d="M2 12q10-10 20 0"/></g>
-<g class="icon" transform="translate(960 184)"><rect x="0" y="2" width="28" height="22" rx="3"/><circle cx="14" cy="13" r="6"/><path d="M7 2l3-4h8l3 4"/></g>
-<g class="icon" transform="translate(1032 184)"><path d="M0 10h7l10-8v24L7 18H0z"/><path d="M22 8q8 5 0 10M25 3q14 10 0 20"/></g>
-<g class="icon" transform="translate(1100 184)"><path d="M3 6l15-5 9 9-5 15-15 4-9-9z"/><path d="M6 23L23 5"/></g>
-<text x="889" y="226" class="tiny">Cast hidden until Google Cast SDK is added</text>
-<!-- icon row -->
-<g transform="translate(532 320)">
- <g class="icon"><path d="M13 3L21 12 13 21"/></g>
- <g transform="translate(68)" class="icon"><path d="M12 2v16a4 4 0 1 1-3-4"/><path d="M12 2l10-2v5l-10 2"/></g>
- <g transform="translate(136)"><rect x="0" y="3" width="28" height="18" rx="3" fill="#2F80ED"/><text x="4" y="17" font-size="12" font-weight="700" fill="#fff">CC</text></g>
- <g transform="translate(204)" class="icon"><path d="M4 21l4-15 17-4-4 17z"/><path d="M12 16l7-8"/></g>
- <g transform="translate(272)" class="icon"><rect x="1" y="2" width="26" height="20" rx="2"/><path d="M7 7h14v10H7z"/></g>
- <g transform="translate(340)" class="icon"><path d="M0 5h19M0 12h15M0 19h11"/><path d="M22 8l7 6-7 6z"/></g>
- <g transform="translate(408)" class="icon"><path d="M5 2v20M23 2v20M0 5h5M23 5h5M0 19h5M23 19h5"/><path d="M14 2v20" stroke-dasharray="2 3"/></g>
- <g transform="translate(476)" class="icon"><path d="M4 7h20l-4-4M24 7v5M24 17H4l4 4M4 17v-5"/></g>
-</g>
-<text x="532" y="352" class="tiny">Chevron • Audio • CC • Speed • PiP • Playlist • Flip • Repeat  |  24dp icons / 48dp touch targets</text>
+<rect width="843" height="376" fill="url(#video)"/>
+<g opacity=".45" fill="#31563b"><ellipse cx="120" cy="130" rx="150" ry="105"/><ellipse cx="355" cy="105" rx="165" ry="120"/><ellipse cx="600" cy="155" rx="190" ry="125"/><ellipse cx="820" cy="70" rx="100" ry="90"/></g>
+<g opacity=".25" fill="#73916b"><circle cx="65" cy="80" r="44"/><circle cx="205" cy="220" r="65"/><circle cx="430" cy="70" r="70"/><circle cx="680" cy="80" r="55"/><circle cx="760" cy="260" r="70"/></g>
+<rect width="843" height="86" fill="url(#topShade)"/><rect y="286" width="843" height="90" fill="url(#bottomShade)"/>
+<!-- top row -->
+<g class="w" transform="translate(80 37)"><path d="M13 0H-12M-12 0L-2 -10M-12 0L-2 10"/></g>
+<text class="txt" x="106" y="43" font-size="16" font-weight="400">Rainforest Birds</text>
+<g class="w" transform="translate(677 37)"><path d="M-12 11V-10H10V11M-16 15H14"/><path d="M-8 4Q0 -5 8 4M-4 8Q0 4 4 8"/></g>
+<g class="w" transform="translate(721 37)"><rect x="-12" y="-9" width="24" height="19" rx="2"/><circle cx="0" cy="0" r="5"/><path d="M-7 -9L-4 -13H4L7 -9"/></g>
+<g class="w" transform="translate(766 37)"><path d="M-13 -5H-7L2 -12V12L-7 5H-13Z"/><path d="M7 -7Q16 0 7 7M10 -12Q23 0 10 12"/></g>
+<g class="w" transform="translate(810 37)"><path d="M-12 -7L-5 -14L13 4L6 12Z"/><path d="M-9 10L-14 5M10 -10L15 -5M-14 5Q-17 -1 -12 -7M15 -5Q18 1 13 7"/></g>
+<!-- icon row, right aligned, 48px nominal center spacing -->
+<g class="w" transform="translate(465 236)"><path d="M-5 -10L5 0L-5 10"/></g>
+<g class="w" transform="translate(507 236)"><path d="M-2 -12V6A5 5 0 1 1 -7 1"/><path d="M-2 -12L9 -15V-9L-2 -6"/></g>
+<g transform="translate(556 236)"><rect x="-11" y="-9" width="22" height="18" rx="1" fill="#1689ed"/><text x="0" y="5" text-anchor="middle" font-family="Arial,sans-serif" font-size="12" font-weight="700" fill="#fff">CC</text></g>
+<g class="w" transform="translate(603 236)"><path d="M-11 10L-7 -8L11 -13L7 10Z"/><path d="M0 2L6 -6M-3 10H10"/></g>
+<g class="w" transform="translate(652 236)"><rect x="-12" y="-10" width="24" height="19" rx="1"/><path d="M-7 -5H7V5H-7Z"/></g>
+<g class="w" transform="translate(701 236)"><path d="M-12 -8H5M-12 0H2M-12 8H-1"/><path d="M6 -6L13 0L6 6Z"/></g>
+<g class="w" transform="translate(750 236)"><path d="M-8 -12V12M8 -12V12M-13 -8H-8M8 -8H13M-13 8H-8M8 8H13"/><path d="M0 -12V12" stroke-dasharray="2 3"/></g>
+<g class="w" transform="translate(797 236)"><path d="M-10 -6H10L6 -10M10 -6V-1M10 6H-10L-6 10M-10 6V1"/></g>
 <!-- seek row -->
-<text x="112" y="424" class="time">00:03</text>
-<rect x="178" y="414" width="890" height="7" rx="4" fill="#2A2A2A"/>
-<rect x="178" y="414" width="260" height="7" rx="4" fill="#2F80ED"/>
-<circle cx="438" cy="417.5" r="9" fill="#2F80ED"/>
-<circle cx="1068" cy="417.5" r="3" fill="#2F80ED"/>
-<text x="1085" y="424" class="time">00:21</text>
-<!-- time bubble -->
-<rect x="394" y="358" width="88" height="34" rx="9" fill="#2A2A2A" stroke="#8A8F98"/>
-<text x="438" y="380" text-anchor="middle" class="time">00:08</text>
-<path d="M438 392l-6 6h12z" fill="#2A2A2A"/>
-<path d="M438 399V408" stroke="#8A8F98" stroke-dasharray="3 3"/>
-<text x="494" y="379" class="tiny">Bubble follows thumb • 56dp above thumb</text>
-<!-- bottom controls -->
-<g class="icon" transform="translate(100 558)"><rect x="3" y="10" width="22" height="18" rx="3"/><path d="M8 10V7a6 6 0 0 1 12 0v3"/></g>
-<g class="icon" transform="translate(280 558)"><path d="M21 9a10 10 0 1 0 1 9"/><path d="M22 3v8h-8"/><text x="4" y="20" font-size="10" fill="#fff" stroke="none" font-weight="700">10</text></g>
-<g class="icon" transform="translate(432 558)"><path d="M23 4v20M23 14L5 3v22z" fill="#fff"/></g>
-<circle cx="616" cy="582" r="34" fill="#2F80ED"/>
-<path d="M606 568v28M626 568v28" stroke="#fff" stroke-width="5" stroke-linecap="round"/>
-<g class="icon" transform="translate(760 558)"><path d="M5 4v20M5 14L23 3v22z" fill="#fff"/></g>
-<g class="icon" transform="translate(910 558)"><path d="M7 9a10 10 0 1 1-1 9"/><path d="M6 3v8h8"/><text x="4" y="20" font-size="10" fill="#fff" stroke="none" font-weight="700">10</text></g>
-<g class="icon" transform="translate(1070 558)"><rect x="1" y="3" width="26" height="20" rx="2"/><path d="M6 8h16v10H6z"/></g>
-<text x="84" y="632" class="tiny">Lock</text><text x="264" y="632" class="tiny">−10s</text><text x="416" y="632" class="tiny">Previous</text><text x="586" y="632" class="tiny">56dp play/pause</text><text x="746" y="632" class="tiny">Next</text><text x="896" y="632" class="tiny">+10s</text><text x="1058" y="632" class="tiny">Aspect</text>
-<text x="56" y="690" class="sub">Landscape sizing: top controls within 18% height • seek + bottom row within 22% • 4–8dp row gap • bottom gradient ≈80dp</text>
-<!-- PORTRAIT -->
-<text x="1210" y="132" class="label">PORTRAIT • 360 × 800dp</text>
-<rect x="1240" y="154" width="270" height="600" rx="18" fill="#050607" stroke="#59616c" stroke-width="2"/>
-<rect x="1242" y="156" width="266" height="596" rx="16" fill="#202a27"/>
-<g opacity=".45" fill="#42584a"><circle cx="1300" cy="330" r="78"/><circle cx="1420" cy="290" r="96"/><circle cx="1370" cy="490" r="105"/></g>
-<rect x="1242" y="156" width="266" height="128" fill="url(#topfade)"/>
-<rect x="1242" y="630" width="266" height="122" fill="url(#botfade)"/>
-<path class="icon" d="M1272 204h-16m0 0 8-8m-8 8 8 8"/>
-<text x="1282" y="209" font-size="14" font-weight="700" fill="#fff">Rainforest Birds…</text>
-<g class="icon" transform="translate(1435 184)"><path d="M0 10h7l9-7v20l-9-7H0z"/></g>
-<g class="icon" transform="translate(1470 184)"><path d="M0 0l18 18M18 0L0 18"/></g>
-<!-- portrait icon row horizontally scrollable -->
-<g transform="translate(1270 330)">
- <g class="icon"><path d="M4 3l7 9-7 9"/></g>
- <g transform="translate(42)" class="icon"><path d="M12 2v16a4 4 0 1 1-3-4"/></g>
- <g transform="translate(84)"><rect width="25" height="18" y="3" rx="3" fill="#2F80ED"/><text x="3" y="16" font-size="11" fill="#fff">CC</text></g>
- <g transform="translate(126)" class="icon"><path d="M3 21l5-15 17-4-4 17z"/></g>
- <g transform="translate(168)" class="icon"><rect x="1" y="2" width="24" height="20"/></g>
+<text class="txt time" x="72" y="290" text-anchor="middle">00:03</text>
+<rect x="105" y="280" width="665" height="8" rx="4" fill="#1689ed" opacity=".28"/>
+<rect x="105" y="280" width="247" height="8" rx="4" fill="#1689ed"/>
+<circle cx="352" cy="284" r="8" fill="#1689ed"/>
+<text class="txt time" x="805" y="290" text-anchor="middle">00:21</text>
+<!-- bottom row -->
+<g class="w" transform="translate(75 337)"><rect x="-10" y="-2" width="20" height="17" rx="2"/><path d="M-6 -2V-6A6 6 0 0 1 6 -6V-2"/></g>
+<!-- Back 10: counter-clockwise circular arrow, bold vector 10 -->
+<g transform="translate(196 337)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+ <path d="M9 -8A12 12 0 1 0 10 7"/>
+ <path d="M9 -8L2 -8M9 -8L9 -1"/>
+ <path d="M-4 -4L-4 4M-4 -4L-7 -1M-4 -4L-1 -1"/>
+ <path d="M1 -4C4 -4 4 -1 1 -1H0L4 4H0" stroke-width="2.5"/>
 </g>
-<text x="1270" y="362" class="tiny">Side-scroll row • expanded by default</text>
-<!-- portrait seek -->
-<text x="1255" y="490" class="time">03</text>
-<rect x="1284" y="482" width="185" height="6" rx="3" fill="#2A2A2A"/>
-<rect x="1284" y="482" width="54" height="6" rx="3" fill="#2F80ED"/>
-<circle cx="1338" cy="485" r="7" fill="#2F80ED"/>
-<text x="1473" y="490" class="time">21</text>
-<rect x="1307" y="430" width="62" height="28" rx="7" fill="#2A2A2A" stroke="#8A8F98"/>
-<text x="1338" y="449" class="time" text-anchor="middle">08</text>
-<path d="M1338 458l-5 5h10z" fill="#2A2A2A"/>
-<!-- portrait bottom row -->
-<g class="icon" transform="translate(1258 660)"><rect x="2" y="9" width="20" height="17" rx="3"/><path d="M7 9V6a5 5 0 0 1 10 0v3"/></g>
-<g class="icon" transform="translate(1300 660)"><path d="M18 8a9 9 0 1 0 1 9"/><path d="M19 2v8h-8"/><text x="3" y="18" font-size="9" fill="#fff" stroke="none">10</text></g>
-<g class="icon" transform="translate(1340 660)"><path d="M18 4v19M18 13L2 3v20z" fill="#fff"/></g>
-<circle cx="1375" cy="691" r="25" fill="#2F80ED"/><path d="M1369 680v22M1381 680v22" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
-<g class="icon" transform="translate(1398 660)"><path d="M2 4v19M2 13L18 3v20z" fill="#fff"/></g>
-<g class="icon" transform="translate(1440 660)"><path d="M4 8a9 9 0 1 1 1 9"/><path d="M5 2v8h8"/><text x="2" y="18" font-size="9" fill="#fff" stroke="none">10</text></g>
-<g class="icon" transform="translate(1475 660)"><rect x="0" y="3" width="20" height="17" rx="2"/></g>
-<text x="1250" y="725" class="tiny">48dp targets • center play stays centered</text>
-<!-- gesture callouts -->
-<rect x="56" y="790" width="1454" height="330" rx="14" fill="#1b2026" stroke="#3d4650"/>
-<text x="82" y="830" class="label">GESTURE FEEDBACK PLACEMENT</text>
-<g transform="translate(95 860)">
- <rect x="0" y="0" width="300" height="190" rx="12" fill="#111820" stroke="#59616c"/>
- <path d="M0 94h300" stroke="#2A2A2A" stroke-width="2"/>
- <circle cx="150" cy="94" r="30" fill="#2A2A2A" opacity=".85"/>
- <text x="150" y="101" text-anchor="middle" class="label">+12s</text>
- <text x="150" y="28" text-anchor="middle" class="tiny">Horizontal swipe seek</text>
- <text x="150" y="132" text-anchor="middle" class="small">Target time + seconds</text>
+<!-- Previous: |◀ -->
+<g transform="translate(315 337)" fill="#fff"><rect x="-10" y="-10" width="3" height="20"/><path d="M-4 0L9 -10V10Z"/></g>
+<circle cx="439" cy="337" r="24" fill="#1689ed"/>
+<path d="M433 326V348M445 326V348" stroke="#fff" stroke-width="4" stroke-linecap="round"/>
+<!-- Next: ▶| -->
+<g transform="translate(562 337)" fill="#fff"><path d="M-9 -10L4 0L-9 10Z"/><rect x="7" y="-10" width="3" height="20"/></g>
+<!-- Forward 10: clockwise circular arrow, bold vector 10 -->
+<g transform="translate(682 337)" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+ <path d="M-9 -8A12 12 0 1 1 -10 7"/>
+ <path d="M-9 -8L-2 -8M-9 -8L-9 -1"/>
+ <path d="M-4 -4L-4 4M-4 -4L-7 -1M-4 -4L-1 -1"/>
+ <path d="M1 -4C4 -4 4 -1 1 -1H0L4 4H0" stroke-width="2.5"/>
 </g>
-<g transform="translate(445 860)">
- <rect x="0" y="0" width="300" height="190" rx="12" fill="#111820" stroke="#59616c"/>
- <circle cx="68" cy="95" r="34" fill="#2F80ED" opacity=".2"/><circle cx="68" cy="95" r="20" fill="none" stroke="#2F80ED" stroke-width="2"/>
- <text x="68" y="101" text-anchor="middle" class="label">10</text>
- <text x="150" y="28" text-anchor="middle" class="tiny">Double tap left / right third</text>
- <text x="150" y="154" text-anchor="middle" class="small">Ripple + cumulative 10 / 20 / 30s</text>
-</g>
-<g transform="translate(795 860)">
- <rect x="0" y="0" width="300" height="190" rx="12" fill="#111820" stroke="#59616c"/>
- <path d="M30 100h240" stroke="#2F80ED" stroke-width="4" stroke-linecap="round"/>
- <circle cx="150" cy="100" r="10" fill="#2F80ED"/>
- <rect x="115" y="30" width="70" height="32" rx="8" fill="#2A2A2A" stroke="#8A8F98"/>
- <text x="150" y="51" class="time" text-anchor="middle">00:08</text>
- <path d="M150 62v27" stroke="#8A8F98" stroke-dasharray="3 3"/>
- <text x="150" y="154" text-anchor="middle" class="small">Seek bubble: 56dp above thumb</text>
-</g>
-<g transform="translate(1145 860)">
- <rect x="0" y="0" width="330" height="190" rx="12" fill="#111820" stroke="#59616c"/>
- <g class="icon" transform="translate(45 55)"><path d="M0 30h18l22-18v52L18 46H0z"/><path d="M55 22q15 10 0 20"/></g>
- <text x="175" y="80" class="label">68%</text>
- <text x="165" y="154" text-anchor="middle" class="small">Vertical swipe: brightness / volume</text>
-</g>
-<text x="82" y="1090" class="tiny">Gesture overlays are transient; system edge zones (24dp) and locked / dropdown states block gesture handling.</text>
+<g class="w" transform="translate(802 337)"><path d="M-12 -5V-12H-5M5 -12H12V-5M12 5V12H5M-5 12H-12V5"/></g>
 </svg>
