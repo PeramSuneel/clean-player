@@ -516,11 +516,11 @@ class MainActivity : AppCompatActivity() {
         toolbar.addView(label("Clean Player", 24, text, true), LinearLayout.LayoutParams(0, -2, 1f))
         val viewButton = button(if (isGrid) "Grid" else "List", false)
         viewButton.contentDescription = "Switch grid or list view"
-        toolbar.addView(viewButton, LinearLayout.LayoutParams(dp(46), dp(42)).apply { marginEnd = dp(7) })
+        toolbar.addView(viewButton, LinearLayout.LayoutParams(dp(56), dp(42)).apply { marginEnd = dp(7) })
         viewButton.setOnClickListener { isGrid = !isGrid; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("grid_view", isGrid).apply(); showHome(search.text.toString()) }
         val themeButton = button(if (isDark) "Light" else "Dark", false)
         themeButton.contentDescription = "Switch light or dark theme"
-        toolbar.addView(themeButton, LinearLayout.LayoutParams(dp(46), dp(42)))
+        toolbar.addView(themeButton, LinearLayout.LayoutParams(dp(60), dp(42)))
         themeButton.setOnClickListener { isDark = !isDark; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("dark_theme", isDark).apply(); applyPalette(); showHome(search.text.toString()) }
         header.addView(toolbar)
         search = EditText(this).apply {
@@ -679,7 +679,7 @@ class MainActivity : AppCompatActivity() {
         head.addView(titleBlock, LinearLayout.LayoutParams(0, -2, 1f))
         val viewButton = button(if (isGrid) "Grid" else "List", false)
         viewButton.contentDescription = "Switch folder grid or list view"
-        head.addView(viewButton, LinearLayout.LayoutParams(dp(46), dp(42)))
+        head.addView(viewButton, LinearLayout.LayoutParams(dp(60), dp(42)))
         viewButton.setOnClickListener {
             isGrid = !isGrid
             getSharedPreferences("clean_player_preferences", MODE_PRIVATE)
