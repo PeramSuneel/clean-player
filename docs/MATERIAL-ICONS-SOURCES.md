@@ -5,6 +5,7 @@ The V3 player controls use the official Android VectorDrawable XML exports from 
 | Drawable | Material icon | Upstream category |
 |---|---|---|
 | ic_v3_arrow_back | arrow_back | navigation |
+| ic_v3_cast | cast | hardware |
 | ic_v3_photo_camera | photo_camera | image |
 | ic_v3_volume_up | volume_up | av |
 | ic_v3_volume_off | volume_off | av |
