@@ -1558,13 +1558,11 @@ class MainActivity : AppCompatActivity() {
                 try {
                     overlayResult?.let { result ->
                         playerControlsLocked = !playerControlsLocked
-                        button.setImageResource(if (playerControlsLocked) R.drawable.pl_ic_lock_open else R.drawable.pl_ic_lock_outline)
-                        button.imageTintList = android.content.res.ColorStateList.valueOf(
-                            if (playerControlsLocked) Color.WHITE else Color.DKGRAY
-                        )
+                        button.setImageResource(if (playerControlsLocked) R.drawable.pl_ic_lock_outline else R.drawable.pl_ic_lock_open)
+                        button.imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
                         button.background = GradientDrawable().apply {
                             cornerRadius = dp(6).toFloat()
-                            setColor(if (playerControlsLocked) 0xCC252525.toInt() else Color.WHITE)
+                            setColor(0xCC252525.toInt())
                         }
                         if (playerControlsLocked) {
                             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }

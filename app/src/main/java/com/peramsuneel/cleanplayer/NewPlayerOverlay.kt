@@ -197,12 +197,12 @@ internal class NewPlayerOverlay(
         seekView.id = View.generateViewId()
         bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(24)))
 
-        val lock = iconButton(R.drawable.pl_ic_lock_outline, "Lock controls").apply {
+        val lock = iconButton(R.drawable.pl_ic_lock_open, "Lock controls").apply {
             id = View.generateViewId()
-            imageTintList = android.content.res.ColorStateList.valueOf(Color.DKGRAY)
+            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
             background = GradientDrawable().apply {
                 cornerRadius = dp(6).toFloat()
-                setColor(Color.WHITE)
+                setColor(0xCC252525.toInt())
             }
             // Keep the lock target visually distinct and above the bottom shade/seek layer.
             elevation = dp(6).toFloat()
