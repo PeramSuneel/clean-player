@@ -684,7 +684,7 @@ class MainActivity : AppCompatActivity() {
         head.addView(titleBlock, LinearLayout.LayoutParams(0, -2, 1f))
         val viewButton = button(if (isGrid) "Grid" else "List", false).apply {
             background = LiquidGlass.button(this@MainActivity, false)
-            setTextColor(text)
+            setTextColor(this@MainActivity.text)
         }
         viewButton.contentDescription = "Switch folder grid or list view"
         head.addView(viewButton, LinearLayout.LayoutParams(dp(60), dp(42)))
