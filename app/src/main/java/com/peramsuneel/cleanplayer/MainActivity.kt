@@ -1397,6 +1397,10 @@ class MainActivity : AppCompatActivity() {
         playerControls = ui.bottomLayer
         playPauseButton = ui.playButton
         playerMuteButton = ui.muteButton
+        try {
+            val initialVolume = (getSystemService(Context.AUDIO_SERVICE) as AudioManager).getStreamVolume(AudioManager.STREAM_MUSIC)
+            ui.muteButton.setImageResource(if (initialVolume == 0) R.drawable.ic_v3_volume_off else R.drawable.ic_v3_volume_up)
+        } catch (_: Exception) { }
         rotationButton = ui.rotationButton
         repeatButton = ui.repeatButton
         pv.addView(ui.topLayer, FrameLayout.LayoutParams(-1, -1))
