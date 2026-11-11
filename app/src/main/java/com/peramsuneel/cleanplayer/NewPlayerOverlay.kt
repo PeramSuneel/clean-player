@@ -86,8 +86,14 @@ internal class NewPlayerOverlay(
             clipChildren = false
             clipToPadding = false
             setBackgroundColor(Color.TRANSPARENT)
+            ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+                val bottomInset = insets.getInsets(WindowInsetsCompat.Type.navigationBars()).bottom
+                view.setPadding(0, 0, 0, bottomInset)
+                insets
+            }
         }
 
+        val sideMargin = context.resources.getDimensionPixelSize(R.dimen.player_overlay_side_margin)
         val topShade = View(context).apply {
             id = View.generateViewId()
             background = GradientDrawable(
@@ -163,13 +169,13 @@ internal class NewPlayerOverlay(
             connect(topShade.id, ConstraintSet.START, ConstraintSet.PARENT_ID, START)
             connect(topShade.id, ConstraintSet.END, ConstraintSet.PARENT_ID, END)
             connect(topShade.id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, TOP)
-            connect(back.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, dp(8))
+            connect(back.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, sideMargin)
             connect(back.id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP, dp(8))
             connect(name.id, ConstraintSet.START, back.id, ConstraintSet.END, dp(4))
             connect(name.id, ConstraintSet.END, rightActions.id, ConstraintSet.START, dp(4))
             connect(name.id, ConstraintSet.TOP, back.id, TOP)
             connect(name.id, ConstraintSet.BOTTOM, back.id, BOTTOM)
-            connect(rightActions.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, dp(8))
+            connect(rightActions.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
             connect(rightActions.id, ConstraintSet.TOP, back.id, TOP)
             connect(rightActions.id, ConstraintSet.BOTTOM, back.id, BOTTOM)
             connect(optionsScroll.id, ConstraintSet.START, ConstraintSet.PARENT_ID, START)
@@ -227,9 +233,9 @@ internal class NewPlayerOverlay(
             connect(group.id, ConstraintSet.START, ConstraintSet.PARENT_ID, START)
             connect(group.id, ConstraintSet.END, ConstraintSet.PARENT_ID, END)
             connect(group.id, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, dp(4))
-            connect(lock.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, dp(8))
+            connect(lock.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, sideMargin)
             connect(lock.id, ConstraintSet.BOTTOM, group.id, BOTTOM)
-            connect(rotate.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, dp(8))
+            connect(rotate.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
             connect(rotate.id, ConstraintSet.BOTTOM, group.id, BOTTOM)
             connect(seekView.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, dp(8))
             connect(seekView.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, dp(8))
