@@ -324,6 +324,8 @@ class MainActivity : AppCompatActivity() {
     private var videoZoomMatrix = Matrix()
     private var videoZoomScale = 1f
     private var videoPinching = false
+    private var playerControlsLocked = false
+    private var playerVideoFlipped = false
     private var videoTransformView: TextureView? = null
     private var zoomLabel: TextView? = null
     private var zoomLabelHideRunnable: Runnable? = null
@@ -738,7 +740,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     if (PINCH_ZOOM_ENABLED) scaleDetector.onTouchEvent(event)
                 } catch (_: Exception) { }
-                if (playerOptionsOpen) return@setOnTouchListener true
+                if (playerControlsLocked || playerOptionsOpen) return@setOnTouchListener true
                 if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN || event.pointerCount >= 2) {
                     videoPinching = true
                     gestureMode = 3
@@ -1191,6 +1193,48 @@ class MainActivity : AppCompatActivity() {
      * Main, search and folder surfaces draw edge-to-edge, but keep interactive content
      * inside the status bar, navigation bar and display cutout safe areas.
      */
+    private fun savePlayerScreenshot(source: View) {
+        if (Build.VERSION.SDK_INT < 29 || source.width <= 0 || source.height <= 0) {
+            Toast.makeText(this, "Screenshot not available", Toast.LENGTH_SHORT).show()
+            return
+        }
+        try {
+            val bitmap = Bitmap.createBitmap(source.width, source.height, Bitmap.Config.ARGB_8888)
+            val location = IntArray(2)
+            source.getLocationInWindow(location)
+            val rect = android.graphics.Rect(location[0], location[1], location[0] + source.width, location[1] + source.height)
+            PixelCopy.request(window, rect, bitmap, { result ->
+                if (result != PixelCopy.SUCCESS) {
+                    bitmap.recycle()
+                    Toast.makeText(this, "Screenshot not available", Toast.LENGTH_SHORT).show()
+                    return@request
+                }
+                var uri: Uri? = null
+                try {
+                    val values = ContentValues().apply {
+                        put(MediaStore.Images.Media.DISPLAY_NAME, "CleanPlayer_${System.currentTimeMillis()}.jpg")
+                        put(MediaStore.Images.Media.MIME_TYPE, "image/jpeg")
+                        put(MediaStore.Images.Media.RELATIVE_PATH, Environment.DIRECTORY_PICTURES + "/CleanPlayer")
+                        put(MediaStore.Images.Media.IS_PENDING, 1)
+                    }
+                    uri = contentResolver.insert(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, values)
+                    val output = uri?.let { contentResolver.openOutputStream(it) }
+                    if (output == null) throw IllegalStateException("MediaStore output unavailable")
+                    output.use { bitmap.compress(Bitmap.CompressFormat.JPEG, 95, it) }
+                    contentResolver.update(uri!!, ContentValues().apply { put(MediaStore.Images.Media.IS_PENDING, 0) }, null, null)
+                    Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+                } catch (_: Exception) {
+                    uri?.let { contentResolver.delete(it, null, null) }
+                    Toast.makeText(this, "Screenshot not available", Toast.LENGTH_SHORT).show()
+                } finally {
+                    bitmap.recycle()
+                }
+            }, onlineHandler)
+        } catch (_: Exception) {
+            Toast.makeText(this, "Screenshot not available", Toast.LENGTH_SHORT).show()
+        }
+    }
+
     /**
      * V3 controls are isolated from the legacy controls and reuse the existing ExoPlayer,
      * track menus, seeking callbacks, rotation and playback state.
@@ -1240,12 +1284,13 @@ class MainActivity : AppCompatActivity() {
         )
         playerSeekBar = seek
 
+        var overlayResult: NewPlayerOverlay.Result? = null
         val ui = NewPlayerOverlay(
             this,
             currentPlayerTitle,
             seek,
             onBack = { player?.pause(); showHome() },
-            onScreenshot = { Toast.makeText(this, "Screenshot not available", Toast.LENGTH_SHORT).show() },
+            onScreenshot = { savePlayerScreenshot(pv) },
             onMute = { button ->
                 try {
                     val manager = getSystemService(Context.AUDIO_SERVICE) as AudioManager
@@ -1290,7 +1335,13 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) { }
             },
-            onFlip = { Toast.makeText(this, "Flip is not enabled in this build", Toast.LENGTH_SHORT).show() },
+            onFlip = {
+                try {
+                    playerVideoFlipped = !playerVideoFlipped
+                    videoTransformView?.scaleX = if (playerVideoFlipped) -1f else 1f
+                    showPlayerControls(); scheduleControlsHide()
+                } catch (_: Exception) { }
+            },
             onRepeat = { button ->
                 try {
                     val exo = player
@@ -1302,7 +1353,25 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) { }
             },
-            onLock = { Toast.makeText(this, "Screen lock is not enabled in this build", Toast.LENGTH_SHORT).show() },
+            onLock = { button ->
+                try {
+                    val result = overlayResult ?: return@NewPlayerOverlay
+                    playerControlsLocked = !playerControlsLocked
+                    button.setImageResource(if (playerControlsLocked) R.drawable.ic_v3_lock_open else R.drawable.ic_v3_lock)
+                    if (playerControlsLocked) {
+                        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                        result.topLayer.visibility = View.GONE
+                        for (index in 0 until result.bottomLayer.childCount) {
+                            val child = result.bottomLayer.getChildAt(index)
+                            if (child !== button && child !is androidx.constraintlayout.widget.Guideline) child.visibility = View.GONE
+                        }
+                    } else {
+                        result.topLayer.visibility = View.VISIBLE
+                        for (index in 0 until result.bottomLayer.childCount) result.bottomLayer.getChildAt(index).visibility = View.VISIBLE
+                        showPlayerControls(); scheduleControlsHide()
+                    }
+                } catch (_: Exception) { }
+            },
             onPrevious = { player?.seekToPreviousMediaItem(); scheduleControlsHide() },
             onBack10 = { seekBy(-10_000L); showSeekFeedback("−10 sec"); scheduleControlsHide() },
             onPlayPause = { button ->
@@ -1321,6 +1390,7 @@ class MainActivity : AppCompatActivity() {
             onAspect = { showAspectRatioMenu(it); showPlayerControls() }
         ).build()
 
+        overlayResult = ui
         playerTopBar = ui.topLayer
         playerControls = ui.bottomLayer
         playPauseButton = ui.playButton
@@ -2026,6 +2096,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showPlayerControls() {
+        if (playerControlsLocked) return
         animatePlayerControl(playerControls, true)
         animatePlayerControl(playerTopBar, true)
         startSeekBarUpdates()
@@ -2551,6 +2622,7 @@ class MainActivity : AppCompatActivity() {
 
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
-        if (showingPlayer) { player?.pause(); showHome() } else if (currentFolder != null) { showHome() } else super.onBackPressed()
+        if (showingPlayer && playerControlsLocked) { Toast.makeText(this, "Locked", Toast.LENGTH_SHORT).show() }
+        else if (showingPlayer) { player?.pause(); showHome() } else if (currentFolder != null) { showHome() } else super.onBackPressed()
     }
 }
