@@ -138,8 +138,12 @@ internal class NewPlayerOverlay(
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
         }
         val aspect = iconButton(R.drawable.ic_v3_aspect_ratio, "Aspect ratio")
-        rightActions.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
-        aspect.setOnClickListener { onAspect(aspect) }
+        if (PLAYER_TOP_ROW_LAYOUT_ENABLED) {
+            try {
+                rightActions.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
+                aspect.setOnClickListener { onAspect(aspect) }
+            } catch (_: Exception) { aspect.visibility = View.GONE }
+        }
         val mute = iconButton(R.drawable.ic_v3_volume_up, "Mute")
         rightActions.addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
         mute.setOnClickListener { onMute(mute) }
@@ -207,6 +211,9 @@ internal class NewPlayerOverlay(
 
         optionsScroll.addView(options, ViewGroup.LayoutParams(-2, dp(48)))
         top.addView(optionsScroll, ConstraintLayout.LayoutParams(0, dp(48)))
+        try {
+            optionsScroll.visibility = if (PLAYER_ICON_ROW_LAYOUT_ENABLED) View.VISIBLE else View.GONE
+        } catch (_: Exception) { optionsScroll.visibility = View.GONE }
         topSet.connect(optionsScroll.id, ConstraintSet.START, optionsStart.id, ConstraintSet.START)
         topSet.connect(optionsScroll.id, ConstraintSet.END, optionsEnd.id, ConstraintSet.START)
         topSet.connect(optionsScroll.id, ConstraintSet.TOP, optionsLine.id, ConstraintSet.TOP)
@@ -248,7 +255,11 @@ internal class NewPlayerOverlay(
         }
         val next = iconButton(R.drawable.ic_v3_skip_next, "Next")
         val forward10 = iconButton(R.drawable.ic_v3_fast_forward, "Forward 10 seconds")
-        listOf(back10, previous, play, next, forward10).forEachIndexed { index, button ->
+        val transportButtons = try {
+            if (PLAYER_BOTTOM_ROW_LAYOUT_ENABLED) listOf(back10, previous, play, next, forward10)
+            else listOf(previous, back10, play, forward10, next)
+        } catch (_: Exception) { listOf(previous, back10, play, forward10, next) }
+        transportButtons.forEachIndexed { index, button ->
             group.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
                 if (index > 0) marginStart = dp(4)
                 if (index < 4) marginEnd = dp(4)
