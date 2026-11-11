@@ -98,13 +98,13 @@ private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
 private const val SEEK_BAR_STEP_MS = 3_000L
 private const val NEW_PLAYER_UI_ENABLED = true
+internal const val NEW_PLAYER_PIP_ENABLED = true
 private const val PLAYER_NO_YELLOW_ENABLED = true
 internal const val PLAYER_BOTTOM_ROW_LAYOUT_ENABLED = true
 internal const val PLAYER_TOP_ROW_LAYOUT_ENABLED = true
 internal const val PLAYER_ICON_ROW_LAYOUT_ENABLED = true
 internal const val PLAYER_COMPACT_BOTTOM_ENABLED = true
 internal const val PLAYER_PERCENT_ALIGNMENT_ENABLED = true
-internal const val NEW_PLAYER_PIP_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -292,6 +292,7 @@ class MainActivity : AppCompatActivity() {
     private var seekBarUpdateRunnable: Runnable? = null
     private var playerTopBar: View? = null
     private var playerSeekIndicator: TextView? = null
+    private var seekFeedbackHideRunnable: Runnable? = null
     private var playerTitleView: TextView? = null
     private var playPauseButton: ImageButton? = null
     private var controlsHideRunnable: Runnable? = null
@@ -873,8 +874,6 @@ class MainActivity : AppCompatActivity() {
                         gestureMode = 0
                         view.parent?.requestDisallowInterceptTouchEvent(false)
                         scheduleZoomLabelHide()
-                        showPlayerControls()
-                        scheduleControlsHide()
                     }
                     return@setOnTouchListener true
                 }
@@ -955,17 +954,13 @@ class MainActivity : AppCompatActivity() {
                                 exo.setSeekParameters(SeekParameters.EXACT)
                                 exo.seekTo(dragTargetPosition)
                             }
-                            showSeekFeedback(formatPlayerTime(dragTargetPosition), 300L)
+                            showSeekFeedback(formatPlayerTime(dragTargetPosition))
                         } else if (gestureMode == 2) {
                             hideSeekFeedback()
                         } else if (gestureMode == 4) {
                             scheduleZoomLabelHide()
                         }
                         if (gestureMode != 1) playerSeekIndicator?.textSize = 14f
-                        if (gestureMode != 0) {
-                            showPlayerControls()
-                            scheduleControlsHide()
-                        }
                         view.parent?.requestDisallowInterceptTouchEvent(false)
                         gestureMode = 0
                     }
@@ -1467,22 +1462,6 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) { }
             },
             onSpeed = { showPlaybackSpeedMenu(it); showPlayerControls() },
-            onPictureInPicture = { enterPlayerPictureInPicture(pv) },
-            onPlaylist = { anchor ->
-                try {
-                    if (queue.isEmpty()) {
-                        Toast.makeText(this, "No folder playlist available", Toast.LENGTH_SHORT).show()
-                    } else {
-                        val labels = queue.mapIndexed { index, file ->
-                            (if (index == currentIndex) "▶ " else "") + file.name
-                        }
-                        val actions = queue.mapIndexed { index, _ ->
-                            { player?.seekTo(index, 0L); player?.play(); currentIndex = index; updatePlayerTitle() }
-                        }
-                        showPlayerPopup(anchor, labels, actions) { }
-                    }
-                } catch (_: Exception) { }
-            },
             onFlip = {
                 try {
                     playerVideoFlipped = !playerVideoFlipped
@@ -2169,16 +2148,41 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showSeekFeedback(message: String, fadeAfterMs: Long = 850L) {
+    private fun showSeekFeedback(message: String, fadeAfterMs: Long = 0L) {
         if (message.isBlank()) return
-        playerSeekIndicator?.text = message
-        playerSeekIndicator?.visibility = View.VISIBLE
-        onlineHandler.postDelayed({ hideSeekFeedback() }, fadeAfterMs)
+        val indicator = playerSeekIndicator ?: return
+        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        indicator.animate().cancel()
+        indicator.alpha = 1f
+        indicator.text = message
+        indicator.visibility = View.VISIBLE
+        indicator.textSize = 14f
+        val hide = Runnable {
+            indicator.animate().cancel()
+            indicator.animate()
+                .alpha(0f)
+                .setDuration(1_000L)
+                .withEndAction {
+                    indicator.visibility = View.GONE
+                    indicator.alpha = 1f
+                    indicator.textSize = 14f
+                }
+                .start()
+            seekFeedbackHideRunnable = null
+        }
+        seekFeedbackHideRunnable = hide
+        onlineHandler.postDelayed(hide, fadeAfterMs.coerceAtLeast(0L))
     }
 
     private fun hideSeekFeedback() {
-        playerSeekIndicator?.visibility = View.GONE
-        playerSeekIndicator?.textSize = 14f
+        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable = null
+        playerSeekIndicator?.let { indicator ->
+            indicator.animate().cancel()
+            indicator.visibility = View.GONE
+            indicator.alpha = 1f
+            indicator.textSize = 14f
+        }
     }
 
     private fun togglePlayerControls() {
@@ -2741,6 +2745,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable = null
+        playerSeekIndicator?.animate()?.cancel()
         stopSeekBarUpdates()
         cancelOnlineWork()
         onlineExecutor.shutdownNow()

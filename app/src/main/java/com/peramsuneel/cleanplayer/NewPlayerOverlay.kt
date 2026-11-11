@@ -26,8 +26,6 @@ internal class NewPlayerOverlay(
     private val onAudio: (View) -> Unit,
     private val onSubtitles: (View) -> Unit,
     private val onSpeed: (View) -> Unit,
-    private val onPictureInPicture: (View) -> Unit,
-    private val onPlaylist: (View) -> Unit,
     private val onFlip: (View) -> Unit,
     private val onRepeat: (ImageButton) -> Unit,
     private val onLock: (ImageButton) -> Unit,
@@ -156,8 +154,6 @@ internal class NewPlayerOverlay(
         val subtitleButton = option(R.drawable.pl_ic_closed_caption, "Subtitles", onSubtitles)
         subtitleButton.tag = "player-subtitles-button"
         option(R.drawable.pl_ic_speed, "Playback speed", onSpeed)
-        if (NEW_PLAYER_PIP_ENABLED) option(R.drawable.pl_ic_picture_in_picture_alt, "Picture in picture", onPictureInPicture)
-        option(R.drawable.pl_ic_playlist_play, "Playlist", onPlaylist)
         option(R.drawable.pl_ic_flip, "Flip video", onFlip)
         val repeat = iconButton(R.drawable.pl_ic_repeat, "Repeat")
         options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)))
