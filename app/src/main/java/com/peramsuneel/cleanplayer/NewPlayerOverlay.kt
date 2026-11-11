@@ -60,9 +60,7 @@ internal class NewPlayerOverlay(
             val iconPx = dp(24)
             val inset = ((dp(size) - iconPx) / 2).coerceAtLeast(0)
             setPadding(inset, inset, inset, inset)
-            background = android.graphics.drawable.RippleDrawable(
-                android.content.res.ColorStateList.valueOf(0x33FFFFFF), null, null
-            )
+            background = LiquidGlass.button(context)
             minimumWidth = dp(48)
             minimumHeight = dp(48)
             stateListAnimator = null
@@ -97,7 +95,7 @@ internal class NewPlayerOverlay(
             id = View.generateViewId()
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0xB8000000.toInt(), 0x00000000)
+                intArrayOf(0x88000000.toInt(), 0x00000000)
             )
         }
         top.addView(topShade, ConstraintLayout.LayoutParams(0, dp(136)))
@@ -119,6 +117,9 @@ internal class NewPlayerOverlay(
             id = View.generateViewId()
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            setPadding(dp(4), dp(2), dp(4), dp(2))
+            background = LiquidGlass.controlPanel(context, 22)
+            elevation = LiquidGlass.elevation(context)
         }
         val aspect = iconButton(R.drawable.pl_ic_aspect_ratio, "Aspect ratio")
         if (PLAYER_TOP_ROW_LAYOUT_ENABLED) {
@@ -132,6 +133,8 @@ internal class NewPlayerOverlay(
 
         val optionsScroll = HorizontalScrollView(context).apply {
             id = View.generateViewId()
+            background = LiquidGlass.controlPanel(context, 22)
+            elevation = LiquidGlass.elevation(context)
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             clipChildren = false
@@ -186,17 +189,19 @@ internal class NewPlayerOverlay(
             id = View.generateViewId()
             background = GradientDrawable(
                 GradientDrawable.Orientation.TOP_BOTTOM,
-                intArrayOf(0x00000000, 0xB8000000.toInt())
+                intArrayOf(0x00000000, 0x88000000.toInt())
             )
         }
         bottom.addView(bottomShade, ConstraintLayout.LayoutParams(0, dp(116)))
         seekView.id = View.generateViewId()
-        bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(24)))
+        seekView.background = LiquidGlass.controlPanel(context, 16)
+        seekView.elevation = LiquidGlass.elevation(context)
+        bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(32)))
 
         val lock = iconButton(R.drawable.pl_ic_lock_open, "Lock controls").apply {
             id = View.generateViewId()
             imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-            setBackgroundColor(Color.TRANSPARENT)
+            background = LiquidGlass.button(context)
             // Keep the lock target visually distinct and above the bottom shade/seek layer.
             elevation = dp(6).toFloat()
             imageAlpha = 255
@@ -207,13 +212,17 @@ internal class NewPlayerOverlay(
         rotate.id = View.generateViewId()
         val back10 = iconButton(R.drawable.pl_ic_fast_rewind, "Back 10 seconds")
         val previous = iconButton(R.drawable.pl_ic_skip_previous, "Previous video")
-        val play = iconButton(R.drawable.pl_ic_pause, "Pause")
-        play.setBackgroundColor(Color.TRANSPARENT)
+        val play = iconButton(R.drawable.lg_pause, "Pause")
+        play.background = LiquidGlass.circular(context)
+        play.elevation = LiquidGlass.elevation(context)
         val forward10 = iconButton(R.drawable.pl_ic_fast_forward, "Forward 10 seconds")
         val next = iconButton(R.drawable.pl_ic_skip_next, "Next video")
         val controlRow = LinearLayout(context).apply {
             id = View.generateViewId()
             orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(3), 0, dp(3), 0)
+            background = LiquidGlass.controlPanel(context, 28)
+            elevation = LiquidGlass.elevation(context)
             gravity = Gravity.CENTER
             clipChildren = false
             clipToPadding = false

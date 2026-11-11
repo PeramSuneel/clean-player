@@ -1,5 +1,5 @@
 <resources>
-    <color name="launcher_background">#000000</color>
+    <color name="launcher_background">#00000000</color>
     <color name="splash_background">#000000</color>
     <color name="player_background">#000000</color>
     <color name="player_surface">#121212</color>

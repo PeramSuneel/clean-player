@@ -119,26 +119,26 @@ private class PlayerSeekBar(
 ) : View(context) {
     private val density = resources.displayMetrics.density
     private val trackPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.player_divider)
+        color = LiquidGlass.color(context, R.color.player_divider)
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val bufferedPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.player_buffered)
+        color = LiquidGlass.color(context, R.color.player_buffered)
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val progressPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.player_accent)
+        color = LiquidGlass.color(context, R.color.player_accent)
         strokeWidth = 3f * density
         strokeCap = android.graphics.Paint.Cap.ROUND
     }
     private val thumbPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.player_primary)
+        color = LiquidGlass.color(context, R.color.player_primary)
         style = android.graphics.Paint.Style.FILL
     }
     private val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.player_primary)
+        color = LiquidGlass.color(context, R.color.player_primary)
         textSize = 11f * resources.displayMetrics.scaledDensity
     }
     private var durationMs = 0L
@@ -254,16 +254,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyPalette() {
         if (!PLAYER_PALETTE_ENABLED) return
-        try {
-            bg = ContextCompat.getColor(this, R.color.player_background)
-            panel = ContextCompat.getColor(this, R.color.player_surface)
-            accent = ContextCompat.getColor(this, R.color.player_accent)
-            text = ContextCompat.getColor(this, R.color.player_primary)
-            muted = ContextCompat.getColor(this, R.color.player_secondary)
-        } catch (_: Exception) {
-            bg = 0xFF000000.toInt(); panel = 0xFF121212.toInt()
-            accent = 0xFF2F80ED.toInt(); text = 0xFFFFFFFF.toInt(); muted = 0xFF8A8F98.toInt()
-        }
+        bg = LiquidGlass.color(this, R.color.player_background)
+        panel = LiquidGlass.color(this, R.color.player_surface)
+        accent = LiquidGlass.color(this, R.color.player_accent)
+        text = LiquidGlass.color(this, R.color.player_primary)
+        muted = LiquidGlass.color(this, R.color.player_secondary)
     }
     private val files = mutableListOf<MediaFile>()
     private val queue = mutableListOf<MediaFile>()
@@ -496,8 +491,11 @@ class MainActivity : AppCompatActivity() {
         if (HOME_BRAND_LOGO_ENABLED) {
             try {
                 val brandMark = ImageView(this).apply {
-                    setImageResource(R.drawable.ic_brand_mark)
+                    setImageResource(R.drawable.lg_play_arrow)
                     contentDescription = "Clean Player logo"
+                    background = LiquidGlass.circular(this@MainActivity)
+                    setPadding(dp(5), dp(5), dp(5), dp(5))
+                    elevation = LiquidGlass.elevation(this@MainActivity)
                     scaleType = ImageView.ScaleType.FIT_CENTER
                 }
                 toolbar.addView(brandMark, LinearLayout.LayoutParams(dp(28), dp(28)).apply { marginEnd = dp(9) })
@@ -506,11 +504,11 @@ class MainActivity : AppCompatActivity() {
             }
         }
         toolbar.addView(label("Clean Player", 24, text, true), LinearLayout.LayoutParams(0, -2, 1f))
-        val viewButton = button(if (isGrid) "▦" else "☷", false)
+        val viewButton = button(if (isGrid) "Grid" else "List", false)
         viewButton.contentDescription = "Switch grid or list view"
         toolbar.addView(viewButton, LinearLayout.LayoutParams(dp(46), dp(42)).apply { marginEnd = dp(7) })
         viewButton.setOnClickListener { isGrid = !isGrid; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("grid_view", isGrid).apply(); showHome(search.text.toString()) }
-        val themeButton = button(if (isDark) "☀" else "☾", false)
+        val themeButton = button(if (isDark) "Light" else "Dark", false)
         themeButton.contentDescription = "Switch light or dark theme"
         toolbar.addView(themeButton, LinearLayout.LayoutParams(dp(46), dp(42)))
         themeButton.setOnClickListener { isDark = !isDark; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("dark_theme", isDark).apply(); applyPalette(); showHome(search.text.toString()) }
@@ -518,7 +516,7 @@ class MainActivity : AppCompatActivity() {
         search = EditText(this).apply {
             hint = "Search videos, songs or folders"
             setSingleLine(true); textSize = 15f; setTextColor(this@MainActivity.text); setHintTextColor(muted)
-            setPadding(dp(14), 0, dp(14), 0); setBackgroundColor(panel)
+            setPadding(dp(14), 0, dp(14), 0); background = LiquidGlass.panel(this)
             setText(filter)
         }
         val searchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
@@ -530,7 +528,7 @@ class MainActivity : AppCompatActivity() {
         onlineButton.setOnClickListener {
             onlineMode = !onlineMode
             onlineButton.text = if (onlineMode) "Online ✓" else "Online"
-            onlineButton.setBackgroundColor(if (onlineMode) accent else panel)
+            onlineButton.background = LiquidGlass.button(this@MainActivity, onlineMode)
             onlineError = null
             onlineResults = emptyList()
             if (onlineMode) {
@@ -587,10 +585,10 @@ class MainActivity : AppCompatActivity() {
             if (isGrid) {
                 val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
                 groups.forEach { (folder, items) ->
-                    val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(9), dp(12), dp(9), dp(12)); setBackgroundColor(panel) }
+                    val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(9), dp(12), dp(9), dp(12)); background = LiquidGlass.panel(this) }
                     val preview = folderThumbnail(items)
                     if (preview != null) card.addView(preview, LinearLayout.LayoutParams(-1, dp(94)))
-                    else card.addView(label(if (selectedTab == "Videos") "▰" else "♫", 34, accent, true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(8)) })
+                    else card.addView(label(if (selectedTab == "Videos") "VIDEO" else "AUDIO", 13, muted, true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(8)) })
                     card.addView(label(folder, 15, text, true).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
                     card.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false).apply { gravity = Gravity.CENTER })
                     card.setOnClickListener { showFolder(folder, items) }
@@ -600,10 +598,10 @@ class MainActivity : AppCompatActivity() {
                 content.addView(grid)
             } else {
                 groups.forEach { (folder, items) ->
-                    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(9), dp(10), dp(9)); setBackgroundColor(panel) }
+                    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(9), dp(10), dp(9)); background = LiquidGlass.panel(this) }
                     val preview = folderThumbnail(items)
                     if (preview != null) row.addView(preview, LinearLayout.LayoutParams(dp(88), dp(66)).apply { marginEnd = dp(12) })
-                    else row.addView(label(if (selectedTab == "Videos") "▰" else "♫", 27, accent, true), LinearLayout.LayoutParams(dp(88), dp(66)).apply { gravity = Gravity.CENTER_VERTICAL })
+                    else row.addView(label(if (selectedTab == "Videos") "VIDEO" else "AUDIO", 13, muted, true), LinearLayout.LayoutParams(dp(88), dp(66)).apply { gravity = Gravity.CENTER_VERTICAL })
                     val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
                     details.addView(label(folder, 15, text, true))
                     details.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false))
@@ -655,13 +653,13 @@ class MainActivity : AppCompatActivity() {
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(dp(8), dp(8), dp(8), dp(9))
-                    setBackgroundColor(panel)
+                    background = LiquidGlass.panel(this)
                 }
                 val preview = mediaThumbnail(file)
                 if (preview != null) {
                     card.addView(preview, LinearLayout.LayoutParams(-1, dp(112)))
                 } else {
-                    card.addView(label(if (file.isAudio) "♫" else "▶", 32, accent, true).apply {
+                    card.addView(label(if (file.isAudio) "AUDIO" else "VIDEO", 13, muted, true).apply {
                         gravity = Gravity.CENTER
                     }, LinearLayout.LayoutParams(-1, dp(112)))
                 }
@@ -688,13 +686,13 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(10), dp(9), dp(10), dp(9))
-                    setBackgroundColor(panel)
+                    background = LiquidGlass.panel(this)
                 }
                 val preview = mediaThumbnail(file)
                 if (preview != null) {
                     row.addView(preview, LinearLayout.LayoutParams(dp(104), dp(68)).apply { marginEnd = dp(12) })
                 } else {
-                    row.addView(label(if (file.isAudio) "♫" else "▶", 27, accent, true),
+                    row.addView(label(if (file.isAudio) "AUDIO" else "VIDEO", 13, muted, true),
                         LinearLayout.LayoutParams(dp(104), dp(68)).apply { gravity = Gravity.CENTER_VERTICAL })
                 }
                 val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -719,7 +717,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < 29 || file.isAudio) return null
         return try {
             val bitmap: Bitmap = contentResolver.loadThumbnail(file.uri, Size(dp(220), dp(140)), null)
-            ImageView(this).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; setBackgroundColor(panel) }
+            ImageView(this).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; background = LiquidGlass.panel(this) }
         } catch (_: Exception) { null }
     }
 
@@ -812,7 +810,7 @@ class MainActivity : AppCompatActivity() {
         audioOnlyOverlay = TextView(this).apply {
             text = "AUDIO ONLY"
             textSize = 13f
-            setTextColor(ContextCompat.getColor(this@MainActivity, R.color.player_primary))
+            setTextColor(LiquidGlass.color(this@MainActivity, R.color.player_primary))
             gravity = Gravity.CENTER
             letterSpacing = 0.18f
             visibility = View.GONE
@@ -1001,7 +999,7 @@ class MainActivity : AppCompatActivity() {
                     intArrayOf(0xE6000000.toInt(), 0x00000000)
                 )
             } else {
-                android.graphics.drawable.ColorDrawable(ContextCompat.getColor(this@MainActivity, R.color.player_overlay))
+                android.graphics.drawable.ColorDrawable(LiquidGlass.color(this@MainActivity, R.color.player_overlay))
             }
         }
         val toolbar = LinearLayout(this).apply {
@@ -1244,7 +1242,7 @@ class MainActivity : AppCompatActivity() {
         playerControls = bottomPanel
         pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
 
-        val indicator = label("", 14, ContextCompat.getColor(this, R.color.player_primary), true).apply {
+        val indicator = label("", 14, LiquidGlass.color(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(16), dp(10), dp(16), dp(10))
             background = GradientDrawable().apply {
@@ -1255,13 +1253,13 @@ class MainActivity : AppCompatActivity() {
         }
         playerSeekIndicator = indicator
         pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        val zoomIndicator = label("100%", 12, ContextCompat.getColor(this, R.color.player_primary), true).apply {
+        val zoomIndicator = label("100%", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(9), dp(5), dp(9), dp(5))
             background = GradientDrawable().apply {
                 setColor(0xBF000000.toInt())
                 cornerRadius = dp(14).toFloat()
-                setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.player_divider))
+                setStroke(dp(1), LiquidGlass.color(this@MainActivity, R.color.player_divider))
             }
             visibility = View.GONE
             elevation = dp(8).toFloat()
@@ -1456,7 +1454,7 @@ class MainActivity : AppCompatActivity() {
                         group.type == C.TRACK_TYPE_TEXT && (0 until group.length).any { group.isTrackSelected(it) }
                     } == true
                     (anchor as? ImageButton)?.imageTintList = android.content.res.ColorStateList.valueOf(
-                        if (active) 0xFF2F80ED.toInt() else ContextCompat.getColor(this, R.color.player_primary)
+                        if (active) 0xFF2F80ED.toInt() else LiquidGlass.color(this, R.color.player_primary)
                     )
                     showPlayerControls()
                 } catch (_: Exception) { }
@@ -1540,7 +1538,7 @@ class MainActivity : AppCompatActivity() {
         pv.addView(ui.topLayer, FrameLayout.LayoutParams(-1, -1))
         pv.addView(ui.bottomLayer, FrameLayout.LayoutParams(-1, -1))
 
-        val indicator = label("", 14, ContextCompat.getColor(this, R.color.player_primary), true).apply {
+        val indicator = label("", 14, LiquidGlass.color(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(16), dp(10), dp(16), dp(10))
             background = GradientDrawable().apply {
@@ -1552,13 +1550,13 @@ class MainActivity : AppCompatActivity() {
         playerSeekIndicator = indicator
         pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
 
-        val zoomIndicator = label("100%", 12, ContextCompat.getColor(this, R.color.player_primary), true).apply {
+        val zoomIndicator = label("100%", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(9), dp(5), dp(9), dp(5))
             background = GradientDrawable().apply {
                 setColor(0xBF000000.toInt())
                 cornerRadius = dp(14).toFloat()
-                setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.player_divider))
+                setStroke(dp(1), LiquidGlass.color(this@MainActivity, R.color.player_divider))
             }
             visibility = View.GONE
             elevation = dp(8).toFloat()
@@ -1764,7 +1762,7 @@ class MainActivity : AppCompatActivity() {
             exo.repeatMode = if (repeatOne) Player.REPEAT_MODE_ONE else Player.REPEAT_MODE_OFF
             repeatButton?.contentDescription = if (repeatOne) "Turn repeat one off" else "Repeat current video"
             repeatButton?.imageTintList = android.content.res.ColorStateList.valueOf(
-                if (repeatOne) accent else ContextCompat.getColor(this, R.color.player_primary)
+                if (repeatOne) accent else LiquidGlass.color(this, R.color.player_primary)
             )
             Toast.makeText(this, if (repeatOne) "Repeat one on" else "Repeat off", Toast.LENGTH_SHORT).show()
         } catch (_: Exception) {
@@ -2021,7 +2019,7 @@ class MainActivity : AppCompatActivity() {
                 background = GradientDrawable().apply {
                     setColor(0xBF000000.toInt())
                     cornerRadius = dp(14).toFloat()
-                    setStroke(dp(1), ContextCompat.getColor(this@MainActivity, R.color.player_divider))
+                    setStroke(dp(1), LiquidGlass.color(this@MainActivity, R.color.player_divider))
                 }
             }
             labels.forEachIndexed { index, labelText ->
@@ -2029,7 +2027,7 @@ class MainActivity : AppCompatActivity() {
                     val selected = labelText.startsWith("✓ ")
                     val displayText = labelText.removePrefix("✓ ")
                     text = if (selected) android.text.SpannableString("✓  $displayText").apply {
-                        setSpan(android.text.style.ForegroundColorSpan(ContextCompat.getColor(this@MainActivity, R.color.player_accent)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        setSpan(android.text.style.ForegroundColorSpan(LiquidGlass.color(this@MainActivity, R.color.player_accent)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     } else displayText
                     textSize = 14f
                     setTextColor(Color.WHITE)
@@ -2564,11 +2562,11 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(8), dp(8), dp(8), dp(8))
-                    setBackgroundColor(panel)
+                    background = LiquidGlass.panel(this)
                 }
                 val thumbnail = ImageView(this).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    setBackgroundColor(panel)
+                    background = LiquidGlass.panel(this)
                     contentDescription = "Thumbnail for ${result.title}"
                 }
                 row.addView(thumbnail, LinearLayout.LayoutParams(dp(112), dp(72)).apply { marginEnd = dp(12) })
@@ -2666,7 +2664,7 @@ class MainActivity : AppCompatActivity() {
         try {
             if (PLAYER_VECTOR_ICONS_ENABLED && PLAYER_ICON_REFRESH_ENABLED) {
                 setImageResource(icon)
-                imageTintList = android.content.res.ColorStateList.valueOf(ContextCompat.getColor(this@MainActivity, R.color.player_primary))
+                imageTintList = android.content.res.ColorStateList.valueOf(LiquidGlass.color(this@MainActivity, R.color.player_primary))
             }
         } catch (_: Exception) { }
         contentDescription = "Player control"
@@ -2717,7 +2715,7 @@ class MainActivity : AppCompatActivity() {
     private fun button(caption: String, primary: Boolean): Button = Button(this).apply {
         text = caption; textSize = if (primary) 18f else 13f; isAllCaps = false
         setTextColor(this@MainActivity.text)
-        setBackgroundColor(if (primary) accent else panel)
+        background = LiquidGlass.button(this@MainActivity, primary)
         minHeight = 0; minimumHeight = 0; minWidth = 0; minimumWidth = 0
         stateListAnimator = null
     }
