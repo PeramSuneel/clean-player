@@ -4,7 +4,6 @@ import android.content.Context
 import android.graphics.Color
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import androidx.constraintlayout.widget.ConstraintSet
 import android.view.View
 import android.view.ViewGroup
 import android.widget.HorizontalScrollView
@@ -161,21 +160,21 @@ internal class NewPlayerOverlay(
 
         ConstraintSet().apply {
             clone(top)
-            connect(topShade.id, START, PARENT_ID, START)
-            connect(topShade.id, END, PARENT_ID, END)
-            connect(topShade.id, TOP, PARENT_ID, TOP)
-            connect(back.id, START, PARENT_ID, START, dp(8))
-            connect(back.id, TOP, PARENT_ID, TOP, dp(8))
-            connect(name.id, START, back.id, END, dp(4))
-            connect(name.id, END, rightActions.id, START, dp(4))
-            connect(name.id, TOP, back.id, TOP)
-            connect(name.id, BOTTOM, back.id, BOTTOM)
-            connect(rightActions.id, END, PARENT_ID, END, dp(8))
-            connect(rightActions.id, TOP, back.id, TOP)
-            connect(rightActions.id, BOTTOM, back.id, BOTTOM)
-            connect(optionsScroll.id, START, PARENT_ID, START)
-            connect(optionsScroll.id, END, PARENT_ID, END)
-            connect(optionsScroll.id, TOP, back.id, BOTTOM, dp(8))
+            connect(topShade.id, ConstraintSet.START, ConstraintSet.PARENT_ID, START)
+            connect(topShade.id, ConstraintSet.END, ConstraintSet.PARENT_ID, END)
+            connect(topShade.id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, TOP)
+            connect(back.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, dp(8))
+            connect(back.id, ConstraintSet.TOP, ConstraintSet.PARENT_ID, ConstraintSet.TOP, dp(8))
+            connect(name.id, ConstraintSet.START, back.id, ConstraintSet.END, dp(4))
+            connect(name.id, ConstraintSet.END, rightActions.id, ConstraintSet.START, dp(4))
+            connect(name.id, ConstraintSet.TOP, back.id, TOP)
+            connect(name.id, ConstraintSet.BOTTOM, back.id, BOTTOM)
+            connect(rightActions.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, dp(8))
+            connect(rightActions.id, ConstraintSet.TOP, back.id, TOP)
+            connect(rightActions.id, ConstraintSet.BOTTOM, back.id, BOTTOM)
+            connect(optionsScroll.id, ConstraintSet.START, ConstraintSet.PARENT_ID, START)
+            connect(optionsScroll.id, ConstraintSet.END, ConstraintSet.PARENT_ID, END)
+            connect(optionsScroll.id, ConstraintSet.TOP, back.id, ConstraintSet.BOTTOM, dp(8))
             applyTo(top)
         }
         back.setOnClickListener(onBack)
@@ -203,10 +202,11 @@ internal class NewPlayerOverlay(
         val back10 = iconButton(R.drawable.pl_ic_fast_rewind, "Back 10 seconds")
         val previous = iconButton(R.drawable.pl_ic_skip_previous, "Previous")
         val play = iconButton(R.drawable.pl_ic_pause, "Pause")
-        play.background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL
-            setColor(0xFF2F80ED.toInt())
-        }
+        play.background = android.graphics.drawable.RippleDrawable(
+            android.content.res.ColorStateList.valueOf(0x66FFFFFF),
+            GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFF2F80ED.toInt()) },
+            GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE) }
+        )
         val next = iconButton(R.drawable.pl_ic_skip_next, "Next")
         val forward10 = iconButton(R.drawable.pl_ic_fast_forward, "Forward 10 seconds")
         listOf(back10, previous, play, next, forward10).forEachIndexed { index, button ->
@@ -221,19 +221,19 @@ internal class NewPlayerOverlay(
 
         ConstraintSet().apply {
             clone(bottom)
-            connect(bottomShade.id, START, PARENT_ID, START)
-            connect(bottomShade.id, END, PARENT_ID, END)
-            connect(bottomShade.id, BOTTOM, PARENT_ID, BOTTOM)
-            connect(group.id, START, PARENT_ID, START)
-            connect(group.id, END, PARENT_ID, END)
-            connect(group.id, BOTTOM, PARENT_ID, BOTTOM, dp(4))
-            connect(lock.id, START, PARENT_ID, START, dp(8))
-            connect(lock.id, BOTTOM, group.id, BOTTOM)
-            connect(rotate.id, END, PARENT_ID, END, dp(8))
-            connect(rotate.id, BOTTOM, group.id, BOTTOM)
-            connect(seekView.id, START, PARENT_ID, START, dp(8))
-            connect(seekView.id, END, PARENT_ID, END, dp(8))
-            connect(seekView.id, BOTTOM, group.id, TOP)
+            connect(bottomShade.id, ConstraintSet.START, ConstraintSet.PARENT_ID, START)
+            connect(bottomShade.id, ConstraintSet.END, ConstraintSet.PARENT_ID, END)
+            connect(bottomShade.id, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, BOTTOM)
+            connect(group.id, ConstraintSet.START, ConstraintSet.PARENT_ID, START)
+            connect(group.id, ConstraintSet.END, ConstraintSet.PARENT_ID, END)
+            connect(group.id, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, dp(4))
+            connect(lock.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, dp(8))
+            connect(lock.id, ConstraintSet.BOTTOM, group.id, BOTTOM)
+            connect(rotate.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, dp(8))
+            connect(rotate.id, ConstraintSet.BOTTOM, group.id, BOTTOM)
+            connect(seekView.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, dp(8))
+            connect(seekView.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, dp(8))
+            connect(seekView.id, ConstraintSet.BOTTOM, group.id, TOP)
             applyTo(bottom)
         }
 
