@@ -6,7 +6,8 @@ android {
     namespace = "com.peramsuneel.cleanplayer"
     compileSdk = 35
     defaultConfig {
-        applicationId = "com.peramsuneel.cleanplayer"
+        // Keep the Liquid Glass edition independently installable from the approved player.
+        applicationId = "com.peramsuneel.cleanplayer.glass"
         minSdk = 23
         targetSdk = 35
         versionCode = 1
