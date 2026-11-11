@@ -100,6 +100,7 @@ private const val NEW_PLAYER_UI_ENABLED = true
 private const val PLAYER_NO_YELLOW_ENABLED = true
 private const val PLAYER_BOTTOM_ROW_LAYOUT_ENABLED = true
 private const val PLAYER_TOP_ROW_LAYOUT_ENABLED = true
+private const val PLAYER_ICON_ROW_LAYOUT_ENABLED = true
 internal const val NEW_PLAYER_PIP_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
@@ -1357,7 +1358,18 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) { }
             },
             onAudio = { showAudioTrackMenu(it); showPlayerControls() },
-            onSubtitles = { showSubtitleTrackMenu(it); showPlayerControls() },
+            onSubtitles = { anchor ->
+                try {
+                    showSubtitleTrackMenu(anchor)
+                    val active = player?.currentTracks?.groups?.any { group ->
+                        group.type == C.TRACK_TYPE_TEXT && (0 until group.length).any { group.isTrackSelected(it) }
+                    } == true
+                    (anchor as? ImageButton)?.imageTintList = android.content.res.ColorStateList.valueOf(
+                        if (active) 0xFF2F80ED.toInt() else ContextCompat.getColor(this, R.color.player_primary)
+                    )
+                    showPlayerControls()
+                } catch (_: Exception) { }
+            },
             onSpeed = { showPlaybackSpeedMenu(it); showPlayerControls() },
             onPictureInPicture = { enterPlayerPictureInPicture(pv) },
             onPlaylist = { anchor ->

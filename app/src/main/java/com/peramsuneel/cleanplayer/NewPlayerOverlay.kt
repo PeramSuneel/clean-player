@@ -192,7 +192,8 @@ internal class NewPlayerOverlay(
             } catch (_: Exception) { }
         }
         option(R.drawable.ic_v3_music_note, "Audio track", onAudio)
-        option(R.drawable.ic_v3_closed_caption, "Subtitles", onSubtitles)
+        val subtitleButton = option(R.drawable.ic_v3_closed_caption, "Subtitles", onSubtitles)
+        subtitleButton.tag = "player-subtitles-button"
         option(R.drawable.ic_v3_speed, "Playback speed", onSpeed)
         if (NEW_PLAYER_PIP_ENABLED) {
             option(R.drawable.ic_v3_picture_in_picture_alt, "Picture in picture", onPictureInPicture)
