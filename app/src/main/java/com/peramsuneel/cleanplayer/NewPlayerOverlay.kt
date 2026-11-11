@@ -117,7 +117,7 @@ internal class NewPlayerOverlay(
             gravity = Gravity.CENTER_VERTICAL
             val back = iconButton(R.drawable.ic_v3_arrow_back, "Back")
             addView(back, LinearLayout.LayoutParams(dp(48), dp(48)))
-            back.setOnClickListener(onBack)
+            back.setOnClickListener { onBack(it) }
             val name = TextView(context).apply {
                 text = title
                 setTextColor(Color.WHITE)
@@ -129,7 +129,7 @@ internal class NewPlayerOverlay(
             addView(name, LinearLayout.LayoutParams(0, dp(48), 1f))
             val camera = iconButton(R.drawable.ic_v3_photo_camera, "Screenshot")
             addView(camera, LinearLayout.LayoutParams(dp(48), dp(48)))
-            camera.setOnClickListener(onScreenshot)
+            camera.setOnClickListener { onScreenshot(it) }
             val mute = iconButton(R.drawable.ic_v3_volume_up, "Mute")
             addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
             mute.setOnClickListener { onMute(mute) }
@@ -162,7 +162,7 @@ internal class NewPlayerOverlay(
         fun option(icon: Int, description: String, click: (View) -> Unit): ImageButton {
             val b = iconButton(icon, description)
             options.addView(b, LinearLayout.LayoutParams(dp(48), dp(48)))
-            b.setOnClickListener(click)
+            b.setOnClickListener { view -> click(view) }
             return b
         }
         option(R.drawable.ic_v3_chevron_right, "More options") { optionsScroll.smoothScrollTo(optionsScroll.scrollX + dp(240), 0) }
@@ -237,12 +237,12 @@ internal class NewPlayerOverlay(
         bottomSet.setHorizontalBias(group.id, .5f)
         bottomSet.applyTo(bottom)
 
-        previous.setOnClickListener(onPrevious)
-        back10.setOnClickListener(onBack10)
+        previous.setOnClickListener { onPrevious(it) }
+        back10.setOnClickListener { onBack10(it) }
         play.setOnClickListener { onPlayPause(play) }
-        forward10.setOnClickListener(onForward10)
-        next.setOnClickListener(onNext)
-        aspect.setOnClickListener(onAspect)
+        forward10.setOnClickListener { onForward10(it) }
+        next.setOnClickListener { onNext(it) }
+        aspect.setOnClickListener { onAspect(it) }
         lock.setOnClickListener { onLock(lock) }
 
         return Result(
