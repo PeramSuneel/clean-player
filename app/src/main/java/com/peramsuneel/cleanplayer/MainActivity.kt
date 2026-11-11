@@ -1069,7 +1069,7 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) { }
             },
-            { targetMs, thumbX, active -> updateSeekPreview(targetMs, thumbX, active) },
+            { targetMs, thumbX, active -> updateSeekPreview(targetMs, pv.width * 0.03f + thumbX, active) },
             { target ->
                 try {
                     val exo = player ?: return@PlayerSeekBar
@@ -1283,7 +1283,9 @@ class MainActivity : AppCompatActivity() {
                         exo.seekTo(target)
                     }
                 } catch (_: Exception) { }
-            }
+            },
+            leftInsetRatio = 0.095f,
+            rightInsetRatio = 0.064f
         )
         playerSeekBar = seek
 
