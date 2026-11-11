@@ -880,6 +880,8 @@ class MainActivity : AppCompatActivity() {
                 playerTopBar = null
                 playerControls = null
                 playerSeekBar = null
+                // Never attach legacy controls if the isolated overlay cannot be built.
+                return
             }
         }
 
@@ -2622,7 +2624,7 @@ class MainActivity : AppCompatActivity() {
             playPauseButton?.setImageResource(when {
                 activePlayer?.isPlaying == true -> if (NEW_PLAYER_UI_ENABLED) R.drawable.pl_ic_pause else R.drawable.ic_player_pause
                 REPLAY_AT_END_ENABLED && activePlayer != null && playbackIsAtEnd(activePlayer) -> if (NEW_PLAYER_UI_ENABLED) R.drawable.pl_ic_replay else R.drawable.ic_player_replay
-                else -> if (NEW_PLAYER_UI_ENABLED) R.drawable.pl_ic_play_arrow_arrow else R.drawable.ic_player_play
+                else -> if (NEW_PLAYER_UI_ENABLED) R.drawable.pl_ic_play_arrow else R.drawable.ic_player_play
             })
         } catch (_: Exception) { }
     }
