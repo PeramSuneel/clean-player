@@ -1560,10 +1560,7 @@ class MainActivity : AppCompatActivity() {
                         playerControlsLocked = !playerControlsLocked
                         button.setImageResource(if (playerControlsLocked) R.drawable.pl_ic_lock_outline else R.drawable.pl_ic_lock_open)
                         button.imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-                        button.background = GradientDrawable().apply {
-                            cornerRadius = dp(6).toFloat()
-                            setColor(0xCC252525.toInt())
-                        }
+                        button.setBackgroundColor(Color.TRANSPARENT)
                         if (playerControlsLocked) {
                             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
                             result.topLayer.visibility = View.GONE

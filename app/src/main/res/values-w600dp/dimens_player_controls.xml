@@ -1,6 +1,0 @@
-<resources>
-    <dimen name="player_control_icon_size">28dp</dimen>
-    <dimen name="player_control_touch_size">48dp</dimen>
-    <dimen name="player_control_row_height">48dp</dimen>
-    <dimen name="player_control_group_gap">4dp</dimen>
-</resources>

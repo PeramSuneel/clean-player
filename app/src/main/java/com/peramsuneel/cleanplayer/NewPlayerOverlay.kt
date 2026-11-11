@@ -200,10 +200,7 @@ internal class NewPlayerOverlay(
         val lock = iconButton(R.drawable.pl_ic_lock_open, "Lock controls").apply {
             id = View.generateViewId()
             imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-            background = GradientDrawable().apply {
-                cornerRadius = dp(6).toFloat()
-                setColor(0xCC252525.toInt())
-            }
+            setBackgroundColor(Color.TRANSPARENT)
             // Keep the lock target visually distinct and above the bottom shade/seek layer.
             elevation = dp(6).toFloat()
             imageAlpha = 255
