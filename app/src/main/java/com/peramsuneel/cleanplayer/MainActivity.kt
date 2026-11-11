@@ -97,6 +97,7 @@ private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
 private const val NEW_PLAYER_UI_ENABLED = true
+private const val NEW_PLAYER_PIP_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
 
@@ -1241,6 +1242,40 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun enterPlayerPictureInPicture(pv: PlayerView) {
+        if (!NEW_PLAYER_PIP_ENABLED || Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
+        try {
+            if (player == null || isFinishing) return
+            val params = android.app.PictureInPictureParams.Builder()
+                .setAspectRatio(android.util.Rational(16, 9))
+                .build()
+            if (!enterPictureInPictureMode(params)) {
+                Toast.makeText(this, "Picture-in-picture is unavailable", Toast.LENGTH_SHORT).show()
+            }
+        } catch (_: Exception) {
+            Toast.makeText(this, "Picture-in-picture is unavailable", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    override fun onPictureInPictureModeChanged(
+        isInPictureInPictureMode: Boolean,
+        newConfig: Configuration
+    ) {
+        super.onPictureInPictureModeChanged(isInPictureInPictureMode, newConfig)
+        try {
+            if (isInPictureInPictureMode) {
+                playerTopBar?.visibility = View.GONE
+                playerControls?.visibility = View.GONE
+                controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            } else if (showingPlayer) {
+                playerTopBar?.visibility = View.VISIBLE
+                playerControls?.visibility = View.VISIBLE
+                showPlayerControls()
+                scheduleControlsHide()
+            }
+        } catch (_: Exception) { }
+    }
+
     /**
      * V3 controls are isolated from the legacy controls and reuse the existing ExoPlayer,
      * track menus, seeking callbacks, rotation and playback state.
@@ -1328,6 +1363,7 @@ class MainActivity : AppCompatActivity() {
             onAudio = { showAudioTrackMenu(it); showPlayerControls() },
             onSubtitles = { showSubtitleTrackMenu(it); showPlayerControls() },
             onSpeed = { showPlaybackSpeedMenu(it); showPlayerControls() },
+            onPictureInPicture = { enterPlayerPictureInPicture(pv) },
             onPlaylist = { anchor ->
                 try {
                     if (queue.isEmpty()) {
