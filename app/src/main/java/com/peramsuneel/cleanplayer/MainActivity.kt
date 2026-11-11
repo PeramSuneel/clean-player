@@ -490,7 +490,13 @@ class MainActivity : AppCompatActivity() {
         root.setBackgroundColor(bg)
         root.orientation = LinearLayout.VERTICAL
         applyScreenInsets(root)
-        val header = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(14), dp(18), dp(8)) }
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(15), dp(13), dp(15), dp(14))
+            background = LiquidGlass.panel(this@MainActivity, 26)
+            elevation = LiquidGlass.elevation(this@MainActivity)
+            clipToOutline = true
+        }
         val toolbar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
         if (HOME_BRAND_LOGO_ENABLED) {
             try {
@@ -545,17 +551,26 @@ class MainActivity : AppCompatActivity() {
             }
             homeContent?.let { renderOnlineResults(it) }
         }
-        header.addView(searchRow, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(15) })
-        root.addView(header)
-        val tabs = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(18), dp(5), dp(18), dp(10)) }
+        header.addView(searchRow, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(14) })
+        root.addView(header, LinearLayout.LayoutParams(-1, -2).apply {
+            setMargins(dp(14), dp(10), dp(14), dp(8))
+        })
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(dp(5), dp(5), dp(5), dp(5))
+            background = LiquidGlass.panel(this@MainActivity, 22)
+            elevation = LiquidGlass.elevation(this@MainActivity)
+        }
         listOf("Videos", "Audio").forEach { tab ->
             val b = button(tab, tab == selectedTab)
             tabs.addView(b, LinearLayout.LayoutParams(0, dp(42), 1f).apply { marginEnd = dp(6) })
             b.setOnClickListener { selectedTab = tab; showHome(search.text.toString()) }
         }
-        root.addView(tabs)
+        root.addView(tabs, LinearLayout.LayoutParams(-1, -2).apply {
+            setMargins(dp(14), dp(2), dp(14), dp(8))
+        })
         val scroll = ScrollView(this)
-        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(18), dp(5), dp(18), dp(30)) }
+        val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(8), dp(14), dp(30)) }
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         homeContent = content
@@ -626,13 +641,29 @@ class MainActivity : AppCompatActivity() {
         val head = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(16), dp(14), dp(16), dp(10))
+            setPadding(dp(10), dp(9), dp(10), dp(9))
+            background = LiquidGlass.panel(this@MainActivity, 26)
+            elevation = LiquidGlass.elevation(this@MainActivity)
+            clipToOutline = true
         }
-        val back = button("‹", false)
-        head.addView(back, LinearLayout.LayoutParams(dp(48), dp(44)))
+        val back = ImageButton(this).apply {
+            setImageResource(R.drawable.pl_ic_arrow_back)
+            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            contentDescription = "Back to library"
+            background = LiquidGlass.controlButton(this@MainActivity)
+            setPadding(dp(11), dp(11), dp(11), dp(11))
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }
+        head.addView(back, LinearLayout.LayoutParams(dp(46), dp(44)).apply { marginEnd = dp(10) })
         back.setOnClickListener { showHome() }
-        head.addView(label(folder, 21, text, true), LinearLayout.LayoutParams(0, -2, 1f))
-        val viewButton = button(if (isGrid) "▦" else "☷", false)
+        val titleBlock = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        titleBlock.addView(label(folder, 18, text, true).apply {
+            maxLines = 1
+            ellipsize = android.text.TextUtils.TruncateAt.END
+        })
+        titleBlock.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false))
+        head.addView(titleBlock, LinearLayout.LayoutParams(0, -2, 1f))
+        val viewButton = button(if (isGrid) "Grid" else "List", false)
         viewButton.contentDescription = "Switch folder grid or list view"
         head.addView(viewButton, LinearLayout.LayoutParams(dp(46), dp(42)))
         viewButton.setOnClickListener {
@@ -641,12 +672,14 @@ class MainActivity : AppCompatActivity() {
                 .edit().putBoolean("grid_view", isGrid).apply()
             showFolder(folder, items)
         }
-        root.addView(head)
+        root.addView(head, LinearLayout.LayoutParams(-1, -2).apply {
+            setMargins(dp(14), dp(10), dp(14), dp(10))
+        })
 
         val scroll = ScrollView(this)
         val content = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(5), dp(16), dp(20))
+            setPadding(dp(14), dp(4), dp(14), dp(24))
         }
         scroll.addView(content)
         root.addView(scroll)
@@ -657,7 +690,9 @@ class MainActivity : AppCompatActivity() {
                 val card = LinearLayout(this).apply {
                     orientation = LinearLayout.VERTICAL
                     setPadding(dp(8), dp(8), dp(8), dp(9))
-                    background = LiquidGlass.panel(this@MainActivity)
+                    background = LiquidGlass.panel(this@MainActivity, 22)
+                    elevation = LiquidGlass.elevation(this@MainActivity)
+                    clipToOutline = true
                 }
                 val preview = mediaThumbnail(file)
                 if (preview != null) {
@@ -690,7 +725,9 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(10), dp(9), dp(10), dp(9))
-                    background = LiquidGlass.panel(this@MainActivity)
+                    background = LiquidGlass.panel(this@MainActivity, 20)
+                    elevation = LiquidGlass.elevation(this@MainActivity)
+                    clipToOutline = true
                 }
                 val preview = mediaThumbnail(file)
                 if (preview != null) {
@@ -721,7 +758,13 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < 29 || file.isAudio) return null
         return try {
             val bitmap: Bitmap = contentResolver.loadThumbnail(file.uri, Size(dp(220), dp(140)), null)
-            ImageView(this).apply { setImageBitmap(bitmap); scaleType = ImageView.ScaleType.CENTER_CROP; background = LiquidGlass.panel(this@MainActivity) }
+            ImageView(this).apply {
+                setImageBitmap(bitmap)
+                scaleType = ImageView.ScaleType.CENTER_CROP
+                background = LiquidGlass.thumbnail(this@MainActivity, 16)
+                clipToOutline = true
+                contentDescription = "Media thumbnail for ${file.name}"
+            }
         } catch (_: Exception) { null }
     }
 
@@ -2566,11 +2609,14 @@ class MainActivity : AppCompatActivity() {
                     orientation = LinearLayout.HORIZONTAL
                     gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(8), dp(8), dp(8), dp(8))
-                    background = LiquidGlass.panel(this@MainActivity)
+                    background = LiquidGlass.panel(this@MainActivity, 20)
+                    elevation = LiquidGlass.elevation(this@MainActivity)
+                    clipToOutline = true
                 }
                 val thumbnail = ImageView(this).apply {
                     scaleType = ImageView.ScaleType.CENTER_CROP
-                    background = LiquidGlass.panel(this@MainActivity)
+                    background = LiquidGlass.thumbnail(this@MainActivity, 14)
+                    clipToOutline = true
                     contentDescription = "Thumbnail for ${result.title}"
                 }
                 row.addView(thumbnail, LinearLayout.LayoutParams(dp(112), dp(72)).apply { marginEnd = dp(12) })
@@ -2674,7 +2720,7 @@ class MainActivity : AppCompatActivity() {
         contentDescription = "Player control"
         scaleType = ImageView.ScaleType.CENTER_INSIDE
         setPadding(dp(10), dp(10), dp(10), dp(10))
-        setBackgroundResource(android.R.drawable.list_selector_background)
+        background = LiquidGlass.controlButton(this@MainActivity, 18)
         minimumHeight = 0
         minimumWidth = 0
         stateListAnimator = null

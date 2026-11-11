@@ -25,11 +25,15 @@ internal object LiquidGlass {
  } }
  private fun dp(c:Context,v:Int)=v*c.resources.displayMetrics.density
  fun panel(c:Context,r:Int=20):Drawable { val d=dark(c); return GradientDrawable(GradientDrawable.Orientation.TL_BR,
-  if(d) intArrayOf(0x35FFFFFF,0x1FFFFFFF,0x12FFFFFF) else intArrayOf(0xF2FFFFFF.toInt(),0xDFFFFFFF.toInt(),0xBFFFFFFF.toInt())).apply {
-  cornerRadius=dp(c,r); setStroke(dp(c,1).toInt(),if(d) 0x66FFFFFF else 0xB3FFFFFF.toInt())
+  if(d) intArrayOf(0x38FFFFFF,0x24FFFFFF,0x12FFFFFF) else intArrayOf(0xF5FFFFFF.toInt(),0xE8FFFFFF.toInt(),0xD8FFFFFF.toInt())).apply {
+  cornerRadius=dp(c,r); setStroke(dp(c,1).toInt(),if(d) 0x77FFFFFF else 0xFFFFFFFF.toInt())
+ } }
+ fun thumbnail(c:Context,r:Int=16):Drawable { val d=dark(c); return GradientDrawable(GradientDrawable.Orientation.TL_BR,
+  if(d) intArrayOf(0x22FFFFFF,0x0FFFFFFF) else intArrayOf(0xCCFFFFFF.toInt(),0x99FFFFFF.toInt())).apply {
+  cornerRadius=dp(c,r); setStroke(dp(c,1).toInt(),if(d) 0x66FFFFFF else 0xCCFFFFFF.toInt())
  } }
  fun controlPanel(c:Context,r:Int=24):Drawable=GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM,
-  intArrayOf(0xAA333333.toInt(),0x77111111)).apply { cornerRadius=dp(c,r); setStroke(dp(c,1).toInt(),0x99FFFFFF.toInt()) }
+  intArrayOf(0xBB333333.toInt(),0x88111111.toInt(),0x66111111)).apply { cornerRadius=dp(c,r); setStroke(dp(c,1).toInt(),0xAAFFFFFF.toInt()) }
  fun button(c:Context,selected:Boolean=false):Drawable {
   val d=dark(c)
   val fill=when { d && selected -> intArrayOf(0x99555555.toInt(),0x77333333)
