@@ -41,6 +41,7 @@ internal class NewPlayerOverlay(
     data class Result(
         val topLayer: ConstraintLayout,
         val bottomLayer: ConstraintLayout,
+        val controlRow: LinearLayout,
         val playButton: ImageButton,
         val muteButton: ImageButton,
         val rotationButton: ImageButton,
@@ -196,7 +197,7 @@ internal class NewPlayerOverlay(
         seekView.id = View.generateViewId()
         bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(24)))
 
-        val lock = iconButton(R.drawable.pl_ic_lock, "Lock controls").apply {
+        val lock = iconButton(R.drawable.pl_ic_lock_outline, "Lock controls").apply {
             id = View.generateViewId()
             imageTintList = android.content.res.ColorStateList.valueOf(Color.DKGRAY)
             background = GradientDrawable().apply {
@@ -211,47 +212,45 @@ internal class NewPlayerOverlay(
         }
         val rotate = iconButton(R.drawable.pl_ic_screen_rotation, "Rotate screen")
         rotate.id = View.generateViewId()
-        val group = LinearLayout(context).apply {
-            id = View.generateViewId()
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-        }
         val back10 = iconButton(R.drawable.pl_ic_fast_rewind, "Back 10 seconds")
-        val previous = iconButton(R.drawable.pl_ic_skip_previous, "Previous")
+        val previous = iconButton(R.drawable.pl_ic_skip_previous, "Previous video")
         val play = iconButton(R.drawable.pl_ic_pause, "Pause")
         play.background = android.graphics.drawable.RippleDrawable(
             android.content.res.ColorStateList.valueOf(0x66FFFFFF),
             GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFF2F80ED.toInt()) },
             GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE) }
         )
-        val next = iconButton(R.drawable.pl_ic_skip_next, "Next")
         val forward10 = iconButton(R.drawable.pl_ic_fast_forward, "Forward 10 seconds")
-        val groupGap = context.resources.getDimensionPixelSize(R.dimen.player_control_group_gap)
-        listOf(back10, previous, play, next, forward10).forEachIndexed { index, button ->
-            group.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
-                if (index > 0) marginStart = groupGap / 2
-                if (index < 4) marginEnd = groupGap / 2
-            })
+        val next = iconButton(R.drawable.pl_ic_skip_next, "Next video")
+        val controlRow = LinearLayout(context).apply {
+            id = View.generateViewId()
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            clipChildren = false
+            clipToPadding = false
         }
-        bottom.addView(lock, ConstraintLayout.LayoutParams(dp(48), dp(48)))
-        bottom.addView(rotate, ConstraintLayout.LayoutParams(dp(48), dp(48)))
-        bottom.addView(group, ConstraintLayout.LayoutParams(-2, dp(48)))
+        // Seven equal-width touch targets span the available player width. The five
+        // playback buttons remain in the required centre sequence, with lock/rotation
+        // at the two ends. Wider landscape screens naturally create wider gaps.
+        listOf(lock, previous, back10, play, forward10, next, rotate).forEach { button ->
+            button.minimumWidth = 0
+            button.minimumHeight = dp(48)
+            button.setPadding(dp(8), dp(8), dp(8), dp(8))
+            controlRow.addView(button, LinearLayout.LayoutParams(0, dp(48), 1f))
+        }
+        bottom.addView(controlRow, ConstraintLayout.LayoutParams(0, dp(48)))
 
         ConstraintSet().apply {
             clone(bottom)
             connect(bottomShade.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
             connect(bottomShade.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
             connect(bottomShade.id, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM)
-            connect(group.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
-            connect(group.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
-            connect(group.id, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, dp(4))
-            connect(lock.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, sideMargin)
-            connect(lock.id, ConstraintSet.BOTTOM, group.id, ConstraintSet.BOTTOM)
-            connect(rotate.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
-            connect(rotate.id, ConstraintSet.BOTTOM, group.id, ConstraintSet.BOTTOM)
+            connect(controlRow.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, sideMargin)
+            connect(controlRow.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
+            connect(controlRow.id, ConstraintSet.BOTTOM, ConstraintSet.PARENT_ID, ConstraintSet.BOTTOM, dp(4))
             connect(seekView.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, sideMargin)
             connect(seekView.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
-            connect(seekView.id, ConstraintSet.BOTTOM, group.id, ConstraintSet.TOP)
+            connect(seekView.id, ConstraintSet.BOTTOM, controlRow.id, ConstraintSet.TOP)
             applyTo(bottom)
         }
 
@@ -263,6 +262,6 @@ internal class NewPlayerOverlay(
         rotate.setOnClickListener { onRotate(rotate) }
         lock.setOnClickListener { onLock(lock) }
 
-        return Result(top, bottom, play, mute, rotate, repeat, lock, name)
+        return Result(top, bottom, controlRow, play, mute, rotate, repeat, lock, name)
     }
 }
