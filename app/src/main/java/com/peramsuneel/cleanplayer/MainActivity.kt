@@ -604,10 +604,17 @@ class MainActivity : AppCompatActivity() {
             if (isGrid) {
                 val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
                 groups.forEach { (folder, items) ->
-                    val card = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER; setPadding(dp(9), dp(12), dp(9), dp(12)); background = LiquidGlass.panel(this@MainActivity) }
+                    val card = LinearLayout(this).apply {
+                        orientation = LinearLayout.VERTICAL
+                        gravity = Gravity.CENTER
+                        setPadding(dp(9), dp(12), dp(9), dp(12))
+                        background = LiquidGlass.panel(this@MainActivity, 22)
+                        elevation = LiquidGlass.elevation(this@MainActivity)
+                        clipToOutline = true
+                    }
                     val preview = folderThumbnail(items)
                     if (preview != null) card.addView(preview, LinearLayout.LayoutParams(-1, dp(94)))
-                    else card.addView(label(if (selectedTab == "Videos") "VIDEO" else "AUDIO", 13, muted, true).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(8)) })
+                    else card.addView(mediaTypePlaceholder(selectedTab == "Audio"), LinearLayout.LayoutParams(-1, dp(94)))
                     card.addView(label(folder, 15, text, true).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
                     card.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false).apply { gravity = Gravity.CENTER })
                     card.setOnClickListener { showFolder(folder, items) }
@@ -617,10 +624,17 @@ class MainActivity : AppCompatActivity() {
                 content.addView(grid)
             } else {
                 groups.forEach { (folder, items) ->
-                    val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; setPadding(dp(10), dp(9), dp(10), dp(9)); background = LiquidGlass.panel(this@MainActivity) }
+                    val row = LinearLayout(this).apply {
+                        orientation = LinearLayout.HORIZONTAL
+                        gravity = Gravity.CENTER_VERTICAL
+                        setPadding(dp(10), dp(9), dp(10), dp(9))
+                        background = LiquidGlass.panel(this@MainActivity, 20)
+                        elevation = LiquidGlass.elevation(this@MainActivity)
+                        clipToOutline = true
+                    }
                     val preview = folderThumbnail(items)
                     if (preview != null) row.addView(preview, LinearLayout.LayoutParams(dp(88), dp(66)).apply { marginEnd = dp(12) })
-                    else row.addView(label(if (selectedTab == "Videos") "VIDEO" else "AUDIO", 13, muted, true), LinearLayout.LayoutParams(dp(88), dp(66)).apply { gravity = Gravity.CENTER_VERTICAL })
+                    else row.addView(mediaTypePlaceholder(selectedTab == "Audio"), LinearLayout.LayoutParams(dp(88), dp(66)))
                     val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
                     details.addView(label(folder, 15, text, true))
                     details.addView(label("${items.size} ${if (selectedTab == "Videos") "videos" else "audio files"}", 12, muted, false))
@@ -698,9 +712,7 @@ class MainActivity : AppCompatActivity() {
                 if (preview != null) {
                     card.addView(preview, LinearLayout.LayoutParams(-1, dp(112)))
                 } else {
-                    card.addView(label(if (file.isAudio) "AUDIO" else "VIDEO", 13, muted, true).apply {
-                        gravity = Gravity.CENTER
-                    }, LinearLayout.LayoutParams(-1, dp(112)))
+                    card.addView(mediaTypePlaceholder(file.isAudio), LinearLayout.LayoutParams(-1, dp(112)))
                 }
                 card.addView(label(file.name, 14, text, true).apply {
                     maxLines = 2
@@ -733,8 +745,8 @@ class MainActivity : AppCompatActivity() {
                 if (preview != null) {
                     row.addView(preview, LinearLayout.LayoutParams(dp(104), dp(68)).apply { marginEnd = dp(12) })
                 } else {
-                    row.addView(label(if (file.isAudio) "AUDIO" else "VIDEO", 13, muted, true),
-                        LinearLayout.LayoutParams(dp(104), dp(68)).apply { gravity = Gravity.CENTER_VERTICAL })
+                    row.addView(mediaTypePlaceholder(file.isAudio),
+                        LinearLayout.LayoutParams(dp(104), dp(68)))
                 }
                 val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
                 details.addView(label(file.name, 15, text, true).apply {
@@ -747,6 +759,17 @@ class MainActivity : AppCompatActivity() {
                 row.setOnClickListener { playItems(items, index) }
             }
         }
+    }
+
+    private fun mediaTypePlaceholder(isAudio: Boolean): FrameLayout = FrameLayout(this).apply {
+        background = LiquidGlass.controlPanel(this@MainActivity, 18)
+        val symbol = ImageView(this@MainActivity).apply {
+            setImageResource(if (isAudio) R.drawable.pl_ic_audiotrack else R.drawable.pl_ic_play_arrow)
+            imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
+            contentDescription = if (isAudio) "Audio" else "Video"
+            scaleType = ImageView.ScaleType.CENTER_INSIDE
+        }
+        addView(symbol, FrameLayout.LayoutParams(dp(34), dp(34), Gravity.CENTER))
     }
 
     private fun folderThumbnail(items: List<MediaFile>): ImageView? {
@@ -2720,7 +2743,7 @@ class MainActivity : AppCompatActivity() {
         contentDescription = "Player control"
         scaleType = ImageView.ScaleType.CENTER_INSIDE
         setPadding(dp(10), dp(10), dp(10), dp(10))
-        background = LiquidGlass.controlButton(this@MainActivity, 18)
+        background = LiquidGlass.controlButton(this@MainActivity)
         minimumHeight = 0
         minimumWidth = 0
         stateListAnimator = null
