@@ -218,6 +218,7 @@ internal class NewPlayerOverlay(
         val seekEnd = verticalGuide(bottom, .97f)
         val leftEdge = verticalGuide(bottom, .03f)
         val rightEdge = verticalGuide(bottom, .97f)
+        val bottomShadeHeight = if (PLAYER_COMPACT_BOTTOM_ENABLED) dp(64) else dp(80)
         val bottomShade = View(context).apply {
             id = View.generateViewId()
             background = GradientDrawable(
@@ -225,10 +226,10 @@ internal class NewPlayerOverlay(
                 intArrayOf(0x00000000, 0xB8000000.toInt())
             )
         }
-        bottom.addView(bottomShade, ConstraintLayout.LayoutParams(0, dp(80)))
+        bottom.addView(bottomShade, ConstraintLayout.LayoutParams(0, bottomShadeHeight))
 
         seekView.id = View.generateViewId()
-        bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(48)))
+        bottom.addView(seekView, ConstraintLayout.LayoutParams(0, if (PLAYER_COMPACT_BOTTOM_ENABLED) dp(48) else dp(52)))
 
         val lock = iconButton(R.drawable.ic_v3_lock, "Lock controls")
         val rotate = iconButton(R.drawable.ic_v3_screen_rotation, "Rotate screen")

@@ -101,6 +101,7 @@ private const val PLAYER_NO_YELLOW_ENABLED = true
 private const val PLAYER_BOTTOM_ROW_LAYOUT_ENABLED = true
 private const val PLAYER_TOP_ROW_LAYOUT_ENABLED = true
 private const val PLAYER_ICON_ROW_LAYOUT_ENABLED = true
+private const val PLAYER_COMPACT_BOTTOM_ENABLED = true
 internal const val NEW_PLAYER_PIP_ENABLED = true
 
 private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val isAudio: Boolean, val duration: Long)
@@ -137,7 +138,7 @@ private class PlayerSeekBar(
     }
     private val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.player_primary)
-        textSize = 12f * resources.displayMetrics.scaledDensity
+        textSize = 11f * resources.displayMetrics.scaledDensity
     }
     private val bubblePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.player_overlay)
@@ -184,7 +185,7 @@ private class PlayerSeekBar(
             if (bufferedMs > 0L) canvas.drawLine(left, y, positionFor(bufferedMs.coerceAtMost(durationMs)), y, bufferedPaint)
             val thumbX = positionFor(if (dragging) targetMs else positionMs)
             canvas.drawLine(left, y, thumbX, y, progressPaint)
-            canvas.drawCircle(thumbX, y, (if (dragging) 7f else 5f) * density, thumbPaint)
+            canvas.drawCircle(thumbX, y, 6f * density, thumbPaint)
             if (dragging && !SEEK_PREVIEW_ENABLED) {
                 val value = formatTime(targetMs)
                 val bubbleWidth = textPaint.measureText(value) + 20f * density
