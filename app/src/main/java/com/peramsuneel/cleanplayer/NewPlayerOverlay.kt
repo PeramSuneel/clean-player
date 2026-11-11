@@ -196,8 +196,14 @@ internal class NewPlayerOverlay(
         seekView.id = View.generateViewId()
         bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(24)))
 
-        val lock = iconButton(R.drawable.pl_ic_lock, "Lock controls")
-        lock.id = View.generateViewId()
+        val lock = iconButton(R.drawable.pl_ic_lock, "Lock controls").apply {
+            id = View.generateViewId()
+            // Keep the lock target visually distinct and above the bottom shade/seek layer.
+            elevation = dp(6).toFloat()
+            imageAlpha = 255
+            isClickable = true
+            isFocusable = true
+        }
         val rotate = iconButton(R.drawable.pl_ic_screen_rotation, "Rotate screen")
         rotate.id = View.generateViewId()
         val group = LinearLayout(context).apply {
@@ -215,10 +221,11 @@ internal class NewPlayerOverlay(
         )
         val next = iconButton(R.drawable.pl_ic_skip_next, "Next")
         val forward10 = iconButton(R.drawable.pl_ic_fast_forward, "Forward 10 seconds")
+        val groupGap = context.resources.getDimensionPixelSize(R.dimen.player_control_group_gap)
         listOf(back10, previous, play, next, forward10).forEachIndexed { index, button ->
             group.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
-                if (index > 0) marginStart = dp(4)
-                if (index < 4) marginEnd = dp(4)
+                if (index > 0) marginStart = groupGap / 2
+                if (index < 4) marginEnd = groupGap / 2
             })
         }
         bottom.addView(lock, ConstraintLayout.LayoutParams(dp(48), dp(48)))
