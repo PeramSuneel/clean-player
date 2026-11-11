@@ -20,7 +20,6 @@ import android.view.LayoutInflater
 import android.content.res.Configuration
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
-import android.media.MediaMetadataRetriever
 import android.view.WindowManager
 import android.view.View
 import android.view.ViewGroup
@@ -75,7 +74,6 @@ private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
 private const val MUTE_BUTTON_ENABLED = true
 private const val REPLAY_AT_END_ENABLED = true
 private const val PLAYER_MENU_FIX_ENABLED = true
-private const val SEEK_PREVIEW_ENABLED = true
 private const val PLAYER_VECTOR_ICONS_ENABLED = true
 private const val PLAYER_PALETTE_ENABLED = true
 private const val PLAYER_SMOOTH_UI_ENABLED = true
@@ -115,7 +113,6 @@ private class PlayerSeekBar(
     private val formatTime: (Long) -> String,
     private val onSeek: (Long) -> Unit,
     private val onInteraction: (Boolean) -> Unit,
-    private val onPreview: (Long, Float, Boolean) -> Unit,
     private val onLiveSeek: (Long) -> Unit,
     private val leftInsetRatio: Float? = null,
     private val rightInsetRatio: Float? = null
@@ -143,10 +140,6 @@ private class PlayerSeekBar(
     private val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
         color = ContextCompat.getColor(context, R.color.player_primary)
         textSize = 11f * resources.displayMetrics.scaledDensity
-    }
-    private val bubblePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
-        color = ContextCompat.getColor(context, R.color.player_overlay)
-        style = android.graphics.Paint.Style.FILL
     }
     private var durationMs = 0L
     private var positionMs = 0L
@@ -181,7 +174,7 @@ private class PlayerSeekBar(
         val right = width - rightInset
         val y = trackY
         textPaint.textAlign = android.graphics.Paint.Align.LEFT
-        canvas.drawText(formatTime(positionMs), 0f, y + 4f * density, textPaint)
+        canvas.drawText(formatTime(if (dragging) targetMs else positionMs), 0f, y + 4f * density, textPaint)
         textPaint.textAlign = android.graphics.Paint.Align.RIGHT
         canvas.drawText(formatTime(durationMs), width.toFloat(), y + 4f * density, textPaint)
         if (durationMs > 0L) {
@@ -190,16 +183,6 @@ private class PlayerSeekBar(
             val thumbX = positionFor(if (dragging) targetMs else positionMs)
             canvas.drawLine(left, y, thumbX, y, progressPaint)
             canvas.drawCircle(thumbX, y, 6f * density, thumbPaint)
-            if (dragging && !SEEK_PREVIEW_ENABLED) {
-                val value = formatTime(targetMs)
-                val bubbleWidth = textPaint.measureText(value) + 20f * density
-                val bubbleHeight = 25f * density
-                val bubbleLeft = (thumbX - bubbleWidth / 2f).coerceIn(0f, width - bubbleWidth)
-                val bubbleTop = (height - bubbleHeight) / 2f
-                canvas.drawRoundRect(bubbleLeft, bubbleTop, bubbleLeft + bubbleWidth, bubbleTop + bubbleHeight, 8f * density, 8f * density, bubblePaint)
-                textPaint.textAlign = android.graphics.Paint.Align.CENTER
-                canvas.drawText(value, bubbleLeft + bubbleWidth / 2f, bubbleTop + 17f * density, textPaint)
-            }
         }
     }
 
@@ -211,9 +194,6 @@ private class PlayerSeekBar(
             (((rawTarget + SEEK_BAR_STEP_MS / 2L) / SEEK_BAR_STEP_MS) * SEEK_BAR_STEP_MS)
                 .coerceAtMost(durationMs)
         invalidate()
-        if (SEEK_PREVIEW_ENABLED) {
-            try { onPreview(targetMs, positionFor(targetMs), dragging) } catch (_: Exception) { }
-        }
         if (LIVE_SCRUBBING_ENABLED && dragging) {
             try { onLiveSeek(targetMs) } catch (_: Exception) { }
         }
@@ -239,9 +219,6 @@ private class PlayerSeekBar(
                     onSeek(targetMs)
                     dragging = false
                     invalidate()
-                    if (SEEK_PREVIEW_ENABLED) {
-                        try { onPreview(targetMs, positionFor(targetMs), false) } catch (_: Exception) { }
-                    }
                     performClick()
                     onInteraction(false)
                 }
@@ -251,9 +228,6 @@ private class PlayerSeekBar(
                 if (dragging) {
                     dragging = false
                     invalidate()
-                    if (SEEK_PREVIEW_ENABLED) {
-                        try { onPreview(targetMs, positionFor(targetMs), false) } catch (_: Exception) { }
-                    }
                     onInteraction(false)
                 }
                 return true
@@ -303,7 +277,6 @@ class MainActivity : AppCompatActivity() {
     private val onlineHandler = Handler(Looper.getMainLooper())
     private val onlineExecutor = Executors.newSingleThreadExecutor()
     private val thumbnailExecutor = Executors.newFixedThreadPool(2)
-    private val seekPreviewExecutor = Executors.newSingleThreadExecutor()
     private var onlineSearchTask: Future<*>? = null
     private var onlineResolveTask: Future<*>? = null
     private var onlineDebounceRunnable: Runnable? = null
@@ -319,12 +292,6 @@ class MainActivity : AppCompatActivity() {
     private var seekBarUpdateRunnable: Runnable? = null
     private var playerTopBar: View? = null
     private var playerSeekIndicator: TextView? = null
-    private var seekPreviewHideRunnable: Runnable? = null
-    private var seekPreviewFuture: Future<*>? = null
-    private var seekPreviewGeneration = 0L
-    private var lastSeekPreviewRequestAt = 0L
-    private var lastSeekPreviewTargetMs = Long.MIN_VALUE
-    private var seekPreviewImage: ImageView? = null
     private var playerTitleView: TextView? = null
     private var playPauseButton: ImageButton? = null
     private var controlsHideRunnable: Runnable? = null
@@ -952,13 +919,8 @@ class MainActivity : AppCompatActivity() {
                             val duration = player?.duration?.takeIf { it > 0 } ?: Long.MAX_VALUE
                             dragTargetPosition = (dragStartPosition + delta).coerceIn(0L, duration)
                             val seconds = delta / 1000L
-                            if (SEEK_PREVIEW_ENABLED) {
-                                playerSeekIndicator?.text = formatPlayerTime(dragTargetPosition)
-                                playerSeekIndicator?.textSize = 28f
-                            } else {
-                                playerSeekIndicator?.text = "${formatDuration(dragTargetPosition)}   ${if (seconds >= 0) "+" else ""}${seconds}s"
-                                playerSeekIndicator?.textSize = 14f
-                            }
+                            playerSeekIndicator?.text = "${formatDuration(dragTargetPosition)}   ${if (seconds >= 0) "+" else ""}${seconds}s"
+                            playerSeekIndicator?.textSize = 14f
                             playerSeekIndicator?.visibility = View.VISIBLE
                         } else if (gestureMode == 2) {
                             val fraction = (-dy / pv.height.coerceAtLeast(1).toFloat()).coerceIn(-1f, 1f)
@@ -1222,7 +1184,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) { }
             },
-            { targetMs, thumbX, active -> updateSeekPreview(targetMs, pv.width * 0.03f + thumbX, active) },
             { target ->
                 try {
                     val exo = player ?: return@PlayerSeekBar
@@ -1287,19 +1248,6 @@ class MainActivity : AppCompatActivity() {
         bottomPanel.addView(controls, LinearLayout.LayoutParams(-1, -2))
         playerControls = bottomPanel
         pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
-
-        val seekPreview = label("", 13, ContextCompat.getColor(this, R.color.player_primary), true).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(5), dp(10), dp(5))
-            background = GradientDrawable().apply {
-                setColor(ContextCompat.getColor(this@MainActivity, R.color.player_overlay))
-                cornerRadius = dp(8).toFloat()
-            }
-            visibility = View.GONE
-            elevation = dp(8).toFloat()
-        }
-        pv.addView(seekPreview, FrameLayout.LayoutParams(-2, dp(30)))
-        seekPreview.tag = "seek-preview"
 
         val indicator = label("", 14, ContextCompat.getColor(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
@@ -1457,7 +1405,6 @@ class MainActivity : AppCompatActivity() {
                     }
                 } catch (_: Exception) { }
             },
-            { targetMs, thumbX, active -> updateSeekPreview(targetMs, thumbX, active) },
             { target ->
                 try {
                     val exo = player ?: return@PlayerSeekBar
@@ -1570,7 +1517,7 @@ class MainActivity : AppCompatActivity() {
                             }
                             for (index in 0 until result.controlRow.childCount) {
                                 val child = result.controlRow.getChildAt(index)
-                                child.visibility = if (child === button) View.VISIBLE else View.GONE
+                                child.visibility = if (child === button) View.VISIBLE else View.INVISIBLE
                             }
                         } else {
                             result.topLayer.visibility = View.VISIBLE
@@ -1613,35 +1560,6 @@ class MainActivity : AppCompatActivity() {
         repeatButton = ui.repeatButton
         pv.addView(ui.topLayer, FrameLayout.LayoutParams(-1, -1))
         pv.addView(ui.bottomLayer, FrameLayout.LayoutParams(-1, -1))
-
-        val preview = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(4), dp(4), dp(4), dp(4))
-            background = GradientDrawable().apply {
-                setColor(0xE6000000.toInt())
-                cornerRadius = dp(10).toFloat()
-            }
-            visibility = View.GONE
-            elevation = dp(10).toFloat()
-            isClickable = false
-            tag = "seek-preview"
-        }
-        val previewFrame = ImageView(this).apply {
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            setBackgroundColor(0xFF171717.toInt())
-            contentDescription = "Video frame preview"
-            tag = "seek-preview-frame"
-        }
-        preview.addView(previewFrame, LinearLayout.LayoutParams(dp(160), dp(90)))
-        val previewTime = label("", 12, ContextCompat.getColor(this, R.color.player_primary), true).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(4), dp(3), dp(4), dp(3))
-            tag = "seek-preview-time"
-        }
-        preview.addView(previewTime, LinearLayout.LayoutParams(-1, dp(22)))
-        pv.addView(preview, FrameLayout.LayoutParams(dp(168), dp(124)))
-        seekPreviewImage = previewFrame
 
         val indicator = label("", 14, ContextCompat.getColor(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
@@ -2251,99 +2169,6 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun requestSeekPreviewFrame(targetMs: Long, image: ImageView) {
-        val uri = player?.currentMediaItem?.localConfiguration?.uri ?: return
-        val now = SystemClock.elapsedRealtime()
-        if (now - lastSeekPreviewRequestAt < 120L &&
-            lastSeekPreviewTargetMs != Long.MIN_VALUE &&
-            kotlin.math.abs(targetMs - lastSeekPreviewTargetMs) < 1_000L
-        ) return
-        lastSeekPreviewRequestAt = now
-        lastSeekPreviewTargetMs = targetMs
-        val generation = ++seekPreviewGeneration
-        seekPreviewFuture?.cancel(true)
-        seekPreviewFuture = seekPreviewExecutor.submit {
-            var retriever: MediaMetadataRetriever? = null
-            val frame = try {
-                retriever = MediaMetadataRetriever()
-                if (uri.scheme.equals("http", true) || uri.scheme.equals("https", true)) {
-                    retriever.setDataSource(uri.toString(), emptyMap())
-                } else {
-                    retriever.setDataSource(this@MainActivity, uri)
-                }
-                retriever.getFrameAtTime(
-                    targetMs.coerceAtLeast(0L) * 1_000L,
-                    MediaMetadataRetriever.OPTION_CLOSEST_SYNC
-                )
-            } catch (_: Exception) {
-                null
-            } finally {
-                try { retriever?.release() } catch (_: Exception) { }
-            }
-            if (frame != null) {
-                onlineHandler.post {
-                    if (showingPlayer && generation == seekPreviewGeneration && image.isAttachedToWindow) {
-                        image.setImageBitmap(frame)
-                    } else {
-                        frame.recycle()
-                    }
-                }
-            }
-        }
-    }
-
-    private fun updateSeekPreview(targetMs: Long, thumbX: Float, active: Boolean) {
-        try {
-            val pv = playerView ?: return
-            val preview = (0 until pv.childCount).mapNotNull { pv.getChildAt(it) as? LinearLayout }
-                .firstOrNull { it.tag == "seek-preview" } ?: return
-            val image = preview.findViewWithTag<ImageView>("seek-preview-frame") ?: return
-            val time = preview.findViewWithTag<TextView>("seek-preview-time") ?: return
-            if (active) {
-                seekPreviewHideRunnable?.let { onlineHandler.removeCallbacks(it) }
-                seekPreviewHideRunnable = null
-                preview.animate().cancel()
-                time.text = formatPlayerTime(targetMs)
-                preview.alpha = 1f
-                preview.measure(
-                    View.MeasureSpec.makeMeasureSpec(pv.width, View.MeasureSpec.AT_MOST),
-                    View.MeasureSpec.makeMeasureSpec(dp(150), View.MeasureSpec.AT_MOST)
-                )
-                val seek = playerSeekBar ?: return
-                val x = seek.x + thumbX - preview.measuredWidth / 2f
-                preview.x = x.coerceIn(0f, (pv.width - preview.measuredWidth).coerceAtLeast(0).toFloat())
-                val seekTop = (playerControls?.y ?: 0f) + seek.y
-                preview.y = (seekTop - preview.measuredHeight - dp(8)).coerceAtLeast(dp(4).toFloat())
-                preview.visibility = View.VISIBLE
-                requestSeekPreviewFrame(targetMs, image)
-            } else {
-                seekPreviewGeneration++
-                seekPreviewFuture?.cancel(true)
-                seekPreviewFuture = null
-                if (preview.visibility == View.VISIBLE) {
-                    seekPreviewHideRunnable?.let { onlineHandler.removeCallbacks(it) }
-                    val hide = Runnable {
-                        try {
-                            preview.animate().cancel()
-                            preview.animate().alpha(0f).setDuration(150L).withEndAction {
-                                preview.visibility = View.GONE
-                                preview.alpha = 1f
-                            }.start()
-                        } catch (_: Exception) {
-                            preview.visibility = View.GONE
-                            preview.alpha = 1f
-                        }
-                        seekPreviewHideRunnable = null
-                    }
-                    seekPreviewHideRunnable = hide
-                    onlineHandler.postDelayed(hide, 180L)
-                }
-            }
-        } catch (_: Exception) {
-            // Preview rendering must never affect seeking or playback.
-        }
-    }
-
     private fun showSeekFeedback(message: String, fadeAfterMs: Long = 850L) {
         if (message.isBlank()) return
         playerSeekIndicator?.text = message
@@ -2920,8 +2745,6 @@ class MainActivity : AppCompatActivity() {
         cancelOnlineWork()
         onlineExecutor.shutdownNow()
         thumbnailExecutor.shutdownNow()
-        seekPreviewFuture?.cancel(true)
-        seekPreviewExecutor.shutdownNow()
         player?.release(); player = null
         super.onDestroy()
     }

@@ -212,11 +212,7 @@ internal class NewPlayerOverlay(
         val back10 = iconButton(R.drawable.pl_ic_fast_rewind, "Back 10 seconds")
         val previous = iconButton(R.drawable.pl_ic_skip_previous, "Previous video")
         val play = iconButton(R.drawable.pl_ic_pause, "Pause")
-        play.background = android.graphics.drawable.RippleDrawable(
-            android.content.res.ColorStateList.valueOf(0x66FFFFFF),
-            GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(0xFF2F80ED.toInt()) },
-            GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.WHITE) }
-        )
+        play.setBackgroundColor(Color.TRANSPARENT)
         val forward10 = iconButton(R.drawable.pl_ic_fast_forward, "Forward 10 seconds")
         val next = iconButton(R.drawable.pl_ic_skip_next, "Next video")
         val controlRow = LinearLayout(context).apply {
