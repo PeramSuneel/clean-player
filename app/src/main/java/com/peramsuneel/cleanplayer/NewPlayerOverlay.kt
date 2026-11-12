@@ -145,11 +145,14 @@ internal class NewPlayerOverlay(
         }
         val options = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL or Gravity.END
+            gravity = Gravity.CENTER_VERTICAL or if (OVERLAY_ROW_FIX_V21_ENABLED) Gravity.START else Gravity.END
+            setPadding(if (OVERLAY_ROW_FIX_V21_ENABLED) dp(4) else 0, 0, if (OVERLAY_ROW_FIX_V21_ENABLED) dp(4) else 0, 0)
         }
         fun option(icon: Int, description: String, click: (View) -> Unit): ImageButton {
             val button = iconButton(icon, description)
-            options.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)))
+            options.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
+                if (OVERLAY_ROW_FIX_V21_ENABLED) { marginStart = dp(2); marginEnd = dp(2) }
+            })
             button.setOnClickListener { view -> click(view) }
             return button
         }
@@ -160,7 +163,9 @@ internal class NewPlayerOverlay(
         option(R.drawable.pl_ic_speed, "Playback speed", onSpeed)
         option(R.drawable.pl_ic_flip, "Flip video", onFlip)
         val repeat = iconButton(R.drawable.pl_ic_repeat, "Repeat")
-        options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)))
+        options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
+            if (OVERLAY_ROW_FIX_V21_ENABLED) { marginStart = dp(2); marginEnd = dp(2) }
+        })
         repeat.setOnClickListener { onRepeat(repeat) }
         optionsScroll.addView(options, ViewGroup.LayoutParams(-2, dp(48)))
         top.addView(optionsScroll, ConstraintLayout.LayoutParams(0, dp(48)))

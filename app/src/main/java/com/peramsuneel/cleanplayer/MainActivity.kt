@@ -99,7 +99,7 @@ private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
 private const val ASPECT_RATIO_V21_ENABLED = true
 private const val LONG_PRESS_2X_V21_ENABLED = true
-private const val OVERLAY_ROW_FIX_V21_ENABLED = true
+internal const val OVERLAY_ROW_FIX_V21_ENABLED = true
 private const val SEEK_BAR_STEP_MS = 3_000L
 private const val NEW_PLAYER_UI_ENABLED = true
 internal const val NEW_PLAYER_PIP_ENABLED = true
@@ -1757,7 +1757,8 @@ class MainActivity : AppCompatActivity() {
             options.clear()
             options.add("Audio tracks unavailable" to null)
         }
-        showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
+        if (OVERLAY_ROW_FIX_V21_ENABLED) showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }, onSelect = { }, keepOnScreen = true)
+        else showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
     }
 
     private fun showSubtitleTrackMenu(anchor: View) {
@@ -1814,7 +1815,8 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Subtitle file loading is unavailable", Toast.LENGTH_SHORT).show()
             }
         })
-        showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
+        if (OVERLAY_ROW_FIX_V21_ENABLED) showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }, onSelect = { }, keepOnScreen = true)
+        else showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
     }
 
     private fun applySubtitleFile(uri: Uri) {
@@ -2146,7 +2148,8 @@ class MainActivity : AppCompatActivity() {
         labels: List<String>,
         actions: List<(() -> Unit)?>?,
         onSelect: (String) -> Unit,
-        compact: Boolean = false
+        compact: Boolean = false,
+        keepOnScreen: Boolean = false
     ) {
         try {
             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
@@ -2243,11 +2246,11 @@ class MainActivity : AppCompatActivity() {
             popup.width = popupWidth
             val location = IntArray(2)
             anchor.getLocationOnScreen(location)
-            if (compact) {
+            if (compact || keepOnScreen) {
                 val screenHeight = resources.displayMetrics.heightPixels
                 val below = location[1] + anchor.height + dp(4)
                 val above = location[1] - popupHeight - dp(4)
-                val y = if (below + popupHeight <= screenHeight - dp(12)) below else above.coerceAtLeast(dp(12))
+                val y = if (below + popupHeight <= screenHeight - dp(12)) below else above.coerceAtLeast(dp(12)).coerceAtMost((screenHeight - popupHeight - dp(12)).coerceAtLeast(dp(12)))
                 val x = location[0].coerceIn(dp(12), (resources.displayMetrics.widthPixels - popupWidth - dp(12)).coerceAtLeast(dp(12)))
                 popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
             } else {
