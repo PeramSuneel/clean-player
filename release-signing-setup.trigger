@@ -1,1 +1,1 @@
-Trigger minimal workflow validation.
+Retry simplified guarded signing workflow.
