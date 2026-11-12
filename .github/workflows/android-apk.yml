@@ -8,6 +8,7 @@ on:
       - '*.gradle.kts'
       - 'gradle.properties'
       - '.github/workflows/android-apk.yml'
+      - '.github/scripts/**'
 jobs:
   build:
     runs-on: ubuntu-latest
