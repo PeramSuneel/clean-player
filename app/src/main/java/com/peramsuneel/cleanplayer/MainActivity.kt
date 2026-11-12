@@ -97,6 +97,9 @@ private const val LANDSCAPE_COMPACT_CONTROLS_ENABLED = true
 private const val PLAYER_ICON_REFRESH_ENABLED = true
 private const val BOTTOM_CONTROLS_CENTERED_ENABLED = true
 private const val PINCH_ZOOM_ENABLED = true
+private const val ASPECT_RATIO_V21_ENABLED = true
+private const val LONG_PRESS_2X_V21_ENABLED = true
+private const val OVERLAY_ROW_FIX_V21_ENABLED = true
 private const val SEEK_BAR_STEP_MS = 3_000L
 private const val NEW_PLAYER_UI_ENABLED = true
 internal const val NEW_PLAYER_PIP_ENABLED = true
@@ -906,6 +909,9 @@ class MainActivity : AppCompatActivity() {
         }
         playerView = pv
         videoTransformView = if (PINCH_ZOOM_ENABLED) pv.videoSurfaceView as? TextureView else null
+        videoTransformView?.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
+            try { if (ASPECT_RATIO_V21_ENABLED && isOriginalAspectRatioSelected()) applyOriginalPixelScale() } catch (_: Exception) { }
+        }
         pv.clipChildren = false
         pv.clipToPadding = false
         resetVideoZoom()
@@ -2056,6 +2062,33 @@ class MainActivity : AppCompatActivity() {
                 contentFrame?.setAspectRatio(0f)
             }
             resetVideoZoom()
+            if (ASPECT_RATIO_V21_ENABLED && label == "Original") applyOriginalPixelScale()
+        } catch (_: Exception) { }
+    }
+
+    private fun isOriginalAspectRatioSelected(): Boolean = try {
+        val uri = queue.getOrNull(currentIndex)?.uri ?: player?.currentMediaItem?.localConfiguration?.uri
+        val key = uri?.toString() ?: "default"
+        getSharedPreferences("clean_player_aspect_ratio", MODE_PRIVATE).getString(key, "Fit") == "Original"
+    } catch (_: Exception) { false }
+
+    private fun applyOriginalPixelScale() {
+        try {
+            val texture = videoTransformView ?: return
+            val videoSize = player?.videoSize ?: return
+            if (videoSize.width <= 0 || videoSize.height <= 0) return
+            texture.post {
+                try {
+                    val width = texture.width.toFloat()
+                    val height = texture.height.toFloat()
+                    if (width <= 0f || height <= 0f || !isOriginalAspectRatioSelected()) return@post
+                    val scale = minOf(1f, videoSize.width / width, videoSize.height / height)
+                    videoZoomScale = 1f
+                    videoZoomMatrix.reset()
+                    videoZoomMatrix.setScale(scale, scale, width / 2f, height / 2f)
+                    applyVideoZoomTransform()
+                } catch (_: Exception) { }
+            }
         } catch (_: Exception) { }
     }
 
@@ -2069,7 +2102,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showAspectRatioMenu(anchor: View) {
-        val choices = listOf("Fit", "Fill", "Zoom", "16:9", "4:3")
+        val choices = if (ASPECT_RATIO_V21_ENABLED) listOf("Fit", "Fill", "Zoom", "16:9", "4:3", "Original") else listOf("Fit", "Fill", "Zoom", "16:9", "4:3")
         val prefs = getSharedPreferences("clean_player_aspect_ratio", MODE_PRIVATE)
         val uri = queue.getOrNull(currentIndex)?.uri ?: player?.currentMediaItem?.localConfiguration?.uri
         val key = uri?.toString() ?: "default"
@@ -2082,14 +2115,16 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) { }
             }
         }
-        showPlayerPopup(anchor, rows.map { it.first }, rows.map { it.second }) { }
+        if (ASPECT_RATIO_V21_ENABLED) showPlayerPopup(anchor, rows.map { it.first }, rows.map { it.second }, onSelect = { }, compact = true)
+        else showPlayerPopup(anchor, rows.map { it.first }, rows.map { it.second }) { }
     }
 
     private fun showPlayerPopup(
         anchor: View,
         labels: List<String>,
         actions: List<(() -> Unit)?>?,
-        onSelect: (String) -> Unit
+        onSelect: (String) -> Unit,
+        compact: Boolean = false
     ) {
         try {
             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
@@ -2100,7 +2135,7 @@ class MainActivity : AppCompatActivity() {
             replacingPlayerPopup = false
             val content = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(dp(8), dp(6), dp(8), dp(6))
+                setPadding(if (compact) dp(4) else dp(8), if (compact) dp(3) else dp(6), if (compact) dp(4) else dp(8), if (compact) dp(3) else dp(6))
                 background = LiquidGlass.panel(this@MainActivity, 18)
             }
             labels.forEachIndexed { index, labelText ->
@@ -2108,7 +2143,7 @@ class MainActivity : AppCompatActivity() {
                     val selected = labelText.startsWith("✓ ")
                     val displayText = labelText.removePrefix("✓ ")
                     text = if (selected) android.text.SpannableString("✓  $displayText").apply {
-                        setSpan(android.text.style.ForegroundColorSpan(LiquidGlass.color(this@MainActivity, R.color.player_primary)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        setSpan(android.text.style.ForegroundColorSpan(if (compact) 0xFF2196F3.toInt() else LiquidGlass.color(this@MainActivity, R.color.player_primary)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     } else displayText
                     textSize = 14f
                     setTextColor(LiquidGlass.color(this@MainActivity, R.color.player_primary))
@@ -2116,15 +2151,15 @@ class MainActivity : AppCompatActivity() {
                     val icon = when (displayText) {
                         "Audio" -> R.drawable.ic_player_audio
                         "Subtitles", "Off", "Load from storage" -> R.drawable.ic_player_subtitles
-                        "Aspect ratio", "Fit", "Fill", "Zoom", "16:9", "4:3" -> R.drawable.ic_player_aspect
+                        "Aspect ratio", "Fit", "Fill", "Zoom", "16:9", "4:3", "Original" -> R.drawable.ic_player_aspect
                         else -> 0
                     }
                     if (icon != 0) {
                         setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
                         compoundDrawablePadding = dp(12)
                     }
-                    setPadding(dp(14), dp(10), dp(18), dp(10))
-                    minHeight = dp(48)
+                    setPadding(if (compact) dp(10) else dp(14), if (compact) dp(4) else dp(10), if (compact) dp(10) else dp(18), if (compact) dp(4) else dp(10))
+                    minHeight = dp(if (compact) 40 else 48)
                     isClickable = true
                     isFocusable = true
                     if (PLAYER_NO_YELLOW_ENABLED) {
@@ -2154,18 +2189,18 @@ class MainActivity : AppCompatActivity() {
                         if (playerOptionsPopup === clickedPopup) clickedPopup?.dismiss()
                     }
                 }
-                content.addView(item, LinearLayout.LayoutParams(-1, -2))
+                content.addView(item, LinearLayout.LayoutParams(if (compact) -2 else -1, -2))
             }
             content.measure(
-                View.MeasureSpec.makeMeasureSpec(dp(280), View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(dp(if (compact) 180 else 280), View.MeasureSpec.AT_MOST),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
             )
             val popupHeight = minOf(content.measuredHeight, resources.displayMetrics.heightPixels - dp(48)).coerceAtLeast(dp(80))
             val popupScroll = ScrollView(this).apply {
                 isFillViewport = false
-                addView(content, ViewGroup.LayoutParams(-1, -2))
+                addView(content, ViewGroup.LayoutParams(if (compact) -2 else -1, -2))
             }
-            val popup = PopupWindow(popupScroll, dp(260), popupHeight, true).apply {
+            val popup = PopupWindow(popupScroll, if (compact) content.measuredWidth else dp(260), popupHeight, true).apply {
                 isOutsideTouchable = true
                 setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
                 elevation = dp(12).toFloat()
@@ -2182,13 +2217,22 @@ class MainActivity : AppCompatActivity() {
             content.alpha = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0f else 1f
             content.scaleX = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
             content.scaleY = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
-            val popupWidth = minOf(dp(280), resources.displayMetrics.widthPixels - dp(24))
+            val popupWidth = if (compact) minOf(content.measuredWidth.coerceAtLeast(dp(96)), dp(180), resources.displayMetrics.widthPixels - dp(24)) else minOf(dp(280), resources.displayMetrics.widthPixels - dp(24))
             popup.width = popupWidth
             val location = IntArray(2)
             anchor.getLocationOnScreen(location)
-            val minOffset = dp(12) - location[0]
-            val maxOffset = resources.displayMetrics.widthPixels - dp(12) - popupWidth - location[0]
-            popup.showAsDropDown(anchor, minOf(maxOffset, maxOf(minOffset, 0)), dp(4), Gravity.START)
+            if (compact) {
+                val screenHeight = resources.displayMetrics.heightPixels
+                val below = location[1] + anchor.height + dp(4)
+                val above = location[1] - popupHeight - dp(4)
+                val y = if (below + popupHeight <= screenHeight - dp(12)) below else above.coerceAtLeast(dp(12))
+                val x = location[0].coerceIn(dp(12), (resources.displayMetrics.widthPixels - popupWidth - dp(12)).coerceAtLeast(dp(12)))
+                popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
+            } else {
+                val minOffset = dp(12) - location[0]
+                val maxOffset = resources.displayMetrics.widthPixels - dp(12) - popupWidth - location[0]
+                popup.showAsDropDown(anchor, minOf(maxOffset, maxOf(minOffset, 0)), dp(4), Gravity.START)
+            }
             if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
                 content.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150L).start()
             }
@@ -2740,7 +2784,7 @@ class MainActivity : AppCompatActivity() {
         // Screen orientation follows the device sensor. Media3's video surface and FIT
         // resize mode preserve the stream's intrinsic ratio and rotation metadata.
         playerView?.requestLayout()
-        videoTransformView?.post { applyVideoZoomTransform() }
+        videoTransformView?.post { if (ASPECT_RATIO_V21_ENABLED && isOriginalAspectRatioSelected()) applyOriginalPixelScale() else applyVideoZoomTransform() }
     }
 
     private fun playerOverlayButton(icon: Int): ImageButton = ImageButton(this).apply {

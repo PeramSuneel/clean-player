@@ -12,7 +12,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-        versionNameSuffix = "-${System.getenv("GITHUB_SHA")?.take(7) ?: "dev"}"
+        versionNameSuffix = "-v2.1-${System.getenv("GITHUB_SHA")?.take(7) ?: "dev"}"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
