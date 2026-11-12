@@ -51,15 +51,6 @@ internal class NewPlayerOverlay(
     private fun dp(value: Int): Int =
         (value * context.resources.displayMetrics.density + .5f).toInt()
 
-    /** Same translucent bar surface as controlPanel, without the unwanted outer stroke. */
-    private fun playerBarSurface(radius: Int): GradientDrawable =
-        GradientDrawable(
-            GradientDrawable.Orientation.TOP_BOTTOM,
-            intArrayOf(0xBB333333.toInt(), 0x88111111.toInt(), 0x66111111)
-        ).apply {
-            cornerRadius = dp(radius).toFloat()
-        }
-
     private fun iconButton(icon: Int, description: String, size: Int = 48): ImageButton =
         ImageButton(context).apply {
             setImageResource(icon)
@@ -128,8 +119,8 @@ internal class NewPlayerOverlay(
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL or Gravity.END
             setPadding(dp(4), dp(2), dp(4), dp(2))
-            background = playerBarSurface(22)
-            elevation = LiquidGlass.elevation(context)
+            setBackgroundColor(Color.TRANSPARENT)
+            elevation = 0f
         }
         val aspect = iconButton(R.drawable.pl_ic_aspect_ratio, "Aspect ratio")
         if (PLAYER_TOP_ROW_LAYOUT_ENABLED) {
@@ -143,8 +134,8 @@ internal class NewPlayerOverlay(
 
         val optionsScroll = HorizontalScrollView(context).apply {
             id = View.generateViewId()
-            background = playerBarSurface(22)
-            elevation = LiquidGlass.elevation(context)
+            setBackgroundColor(Color.TRANSPARENT)
+            elevation = 0f
             isHorizontalScrollBarEnabled = false
             overScrollMode = View.OVER_SCROLL_NEVER
             clipChildren = false
@@ -204,8 +195,8 @@ internal class NewPlayerOverlay(
         }
         bottom.addView(bottomShade, ConstraintLayout.LayoutParams(0, dp(116)))
         seekView.id = View.generateViewId()
-        seekView.background = playerBarSurface(16)
-        seekView.elevation = LiquidGlass.elevation(context)
+        seekView.background = null
+        seekView.elevation = 0f
         bottom.addView(seekView, ConstraintLayout.LayoutParams(0, dp(32)))
 
         val lock = iconButton(R.drawable.pl_ic_lock_open, "Lock controls").apply {
@@ -231,8 +222,8 @@ internal class NewPlayerOverlay(
             id = View.generateViewId()
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(3), 0, dp(3), 0)
-            background = playerBarSurface(28)
-            elevation = LiquidGlass.elevation(context)
+            setBackgroundColor(Color.TRANSPARENT)
+            elevation = 0f
             gravity = Gravity.CENTER
             clipChildren = false
             clipToPadding = false
