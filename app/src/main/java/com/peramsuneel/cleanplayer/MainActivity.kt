@@ -2168,7 +2168,7 @@ class MainActivity : AppCompatActivity() {
                     val selected = labelText.startsWith("✓ ")
                     val displayText = labelText.removePrefix("✓ ")
                     text = if (selected) android.text.SpannableString("✓  $displayText").apply {
-                        setSpan(android.text.style.ForegroundColorSpan(if (compact) 0xFF2196F3.toInt() else LiquidGlass.color(this@MainActivity, R.color.player_primary)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        setSpan(android.text.style.ForegroundColorSpan(LiquidGlass.color(this@MainActivity, R.color.player_primary)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     } else displayText
                     textSize = 14f
                     setTextColor(LiquidGlass.color(this@MainActivity, R.color.player_primary))
