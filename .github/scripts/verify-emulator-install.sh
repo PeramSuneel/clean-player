@@ -20,7 +20,9 @@ diagnostics() {
   adb -s "$SERIAL" get-state || true
   adb -s "$SERIAL" shell getprop sys.boot_completed || true
   adb -s "$SERIAL" shell getprop init.svc.bootanim || true
+  adb -s "$SERIAL" shell service check activity || true
   adb -s "$SERIAL" shell service check package || true
+  adb -s "$SERIAL" shell settings get global device_provisioned 2>&1 || true
   adb -s "$SERIAL" shell cmd package list packages 2>&1 | tail -n 80 || true
   adb -s "$SERIAL" logcat -b all -d -t 2000 2>&1 | tail -n 500 || true
   echo "::endgroup::"
@@ -47,16 +49,48 @@ wait_for_android() {
     return 1
   fi
 
-  echo "Android boot completed. Waiting for Package Manager service..."
-  for attempt in $(seq 1 45); do
-    if adb -s "$SERIAL" shell service check package 2>&1 | grep -q "found" &&
-       adb -s "$SERIAL" shell cmd package list packages >/dev/null 2>&1; then
-      echo "Package Manager is responding."
-      return 0
+  if [[ "$bootanim" != "stopped" ]]; then
+    echo "Boot animation has not stopped (current state: ${bootanim:-unavailable})."
+    return 2
+  fi
+
+  echo "Android boot completed. Waiting for Activity Manager, Package Manager, and Settings provider..."
+  local activity_status package_status package_list_status settings_status settings_value
+  for attempt in $(seq 1 90); do
+    activity_status="$(adb -s "$SERIAL" shell service check activity 2>&1 || true)"
+    package_status="$(adb -s "$SERIAL" shell service check package 2>&1 || true)"
+
+    if printf '%s' "$activity_status" | grep -q "found" &&
+       printf '%s' "$package_status" | grep -q "found"; then
+      if adb -s "$SERIAL" shell cmd package list packages >/dev/null 2>&1; then
+        package_list_status=0
+      else
+        package_list_status=1
+      fi
+
+      if [[ "$package_list_status" -eq 0 ]]; then
+        # Read-only probe: successful access proves the Settings content provider
+        # is queryable. The value itself may legitimately be 0, 1, or null.
+        if settings_value="$(adb -s "$SERIAL" shell settings get global device_provisioned 2>&1)"; then
+          settings_status=0
+        else
+          settings_status=$?
+        fi
+        if [[ "$settings_status" -eq 0 ]]; then
+          echo "Activity Manager is available: $activity_status"
+          echo "Package Manager is available and responsive: $package_status"
+          echo "Settings content provider is accessible (device_provisioned=$settings_value)."
+          return 0
+        fi
+      fi
     fi
     sleep 2
   done
-  echo "Package Manager did not become responsive."
+
+  echo "Android system services/providers did not become ready within 180 seconds."
+  echo "Last Activity Manager check: ${activity_status:-not completed}"
+  echo "Last Package Manager check: ${package_status:-not completed}"
+  echo "Last Settings provider check: ${settings_value:-not accessible}"
   return 2
 }
 
