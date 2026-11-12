@@ -42,7 +42,7 @@ jobs:
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
       - name: Install and launch Debug APK on a clean Android emulator
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: soloturn/android-emulator-runner@ab495a9b42f2af30f5222bd978136f9b0a85b68a
         with:
           api-level: 35
           target: google_apis
