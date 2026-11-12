@@ -3,6 +3,7 @@ import android.content.Context
 import android.content.res.ColorStateList
 import android.graphics.Color
 import android.graphics.drawable.Drawable
+import android.graphics.drawable.ColorDrawable
 import android.graphics.drawable.GradientDrawable
 import android.graphics.drawable.RippleDrawable
 import androidx.annotation.ColorRes
@@ -46,6 +47,9 @@ internal object LiquidGlass {
   }
   return RippleDrawable(ColorStateList.valueOf(0x44FFFFFF),b,null)
  }
+ /** Transparent player hit target: retains a subtle tap ripple without any visible border or frame. */
+ fun playerIconButton(c:Context):Drawable =
+  RippleDrawable(ColorStateList.valueOf(0x33FFFFFF),ColorDrawable(Color.TRANSPARENT),null)
  fun controlButton(c:Context):Drawable =
   RippleDrawable(ColorStateList.valueOf(0x44FFFFFF),controlPanel(c,18),null)
  fun circular(c:Context):Drawable=GradientDrawable(GradientDrawable.Orientation.TL_BR,

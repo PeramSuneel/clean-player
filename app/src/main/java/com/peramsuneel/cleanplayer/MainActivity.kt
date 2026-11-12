@@ -472,8 +472,11 @@ class MainActivity : AppCompatActivity() {
                         pathSegments.any { it.equals("Drive", ignoreCase = true) || it.equals("Google Drive", ignoreCase = true) || it.equals("GoogleDrive", ignoreCase = true) }
                     if (isDriveContent) continue
                     val folder = path.substringAfterLast('/', path.ifBlank { "Internal storage" }).ifBlank { "Internal storage" }
+                    // Keep videos stored in a directory named "Audio" accessible, but do not expose
+                    // a separate Audio folder in this video-only library.
+                    val displayFolder = if (folder.equals("Audio", ignoreCase = true)) "Videos" else folder
                     val uri = ContentUris.withAppendedId(collection, id)
-                    files.add(MediaFile(id, name, uri, folder, if (durCol >= 0) c.getLong(durCol) else 0L))
+                    files.add(MediaFile(id, name, uri, displayFolder, if (durCol >= 0) c.getLong(durCol) else 0L))
                 }
             }
         } catch (_: Exception) { }
@@ -2750,9 +2753,10 @@ class MainActivity : AppCompatActivity() {
         contentDescription = "Player control"
         scaleType = ImageView.ScaleType.CENTER_INSIDE
         setPadding(dp(10), dp(10), dp(10), dp(10))
-        background = LiquidGlass.controlButton(this@MainActivity)
+        background = LiquidGlass.playerIconButton(this@MainActivity)
         minimumHeight = 0
         minimumWidth = 0
+        elevation = 0f
         stateListAnimator = null
     }
 

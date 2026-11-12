@@ -60,9 +60,10 @@ internal class NewPlayerOverlay(
             val iconPx = dp(24)
             val inset = ((dp(size) - iconPx) / 2).coerceAtLeast(0)
             setPadding(inset, inset, inset, inset)
-            background = LiquidGlass.controlButton(context)
+            background = LiquidGlass.playerIconButton(context)
             minimumWidth = dp(48)
             minimumHeight = dp(48)
+            elevation = 0f
             stateListAnimator = null
         }
 
@@ -201,9 +202,9 @@ internal class NewPlayerOverlay(
         val lock = iconButton(R.drawable.pl_ic_lock_open, "Lock controls").apply {
             id = View.generateViewId()
             imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
-            background = LiquidGlass.controlButton(context)
-            // Keep the lock target visually distinct and above the bottom shade/seek layer.
-            elevation = dp(6).toFloat()
+            background = LiquidGlass.playerIconButton(context)
+            // Preserve the full touch target without drawing a button frame.
+            elevation = 0f
             imageAlpha = 255
             isClickable = true
             isFocusable = true
@@ -213,8 +214,8 @@ internal class NewPlayerOverlay(
         val back10 = iconButton(R.drawable.pl_ic_fast_rewind, "Back 10 seconds")
         val previous = iconButton(R.drawable.pl_ic_skip_previous, "Previous video")
         val play = iconButton(R.drawable.lg_pause, "Pause")
-        play.background = LiquidGlass.circular(context)
-        play.elevation = LiquidGlass.elevation(context)
+        play.background = LiquidGlass.playerIconButton(context)
+        play.elevation = 0f
         val forward10 = iconButton(R.drawable.pl_ic_fast_forward, "Forward 10 seconds")
         val next = iconButton(R.drawable.pl_ic_skip_next, "Next video")
         val controlRow = LinearLayout(context).apply {
