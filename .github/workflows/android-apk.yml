@@ -14,7 +14,23 @@ jobs:
     permissions:
       contents: read
     steps:
-      - name: Checkout
+      - name: Check release signing secrets before doing any build work
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then missing+=("$name"); fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::Release build not started. Configure these GitHub Actions secrets first: %s\n' "${missing[*]}"
+            exit 1
+          fi
+      - name: Checkout approved V2 release source
         uses: actions/checkout@v4
         with:
           ref: clean-player-v2-release
@@ -27,7 +43,7 @@ jobs:
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Run available unit tests
+      - name: Run unit tests
         run: gradle --no-daemon :app:testDebugUnitTest
       - name: Build release APK
         run: gradle --no-daemon :app:assembleRelease
@@ -39,35 +55,61 @@ jobs:
           KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
         run: |
           set -euo pipefail
-          for name in KEYSTORE_BASE64 KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::Required GitHub Actions secret $name is not configured. A public APK must be signed with a persistent release key."
-              exit 1
-            fi
-          done
-
           KEYSTORE_PATH="$RUNNER_TEMP/clean-player-v2-release.jks"
+          UNSIGNED_APK="app/build/outputs/apk/release/app-release-unsigned.apk"
           SIGNED_APK="app/build/outputs/apk/release/clean-player-v2.apk"
           trap 'rm -f "$KEYSTORE_PATH"' EXIT
           printf '%s' "$KEYSTORE_BASE64" | base64 --decode > "$KEYSTORE_PATH"
+          test -s "$KEYSTORE_PATH"
 
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
-          if [[ -z "$APKSIGNER" ]]; then
-            echo "::error::Android apksigner was not found."
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          if [[ -z "$APKSIGNER" || -z "$AAPT" ]]; then
+            echo "::error::Required Android build tools apksigner/aapt were not found."
             exit 1
           fi
 
+          keytool -list -keystore "$KEYSTORE_PATH" -storetype JKS \
+            -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" >/dev/null
+
           "$APKSIGNER" sign \
             --ks "$KEYSTORE_PATH" \
+            --ks-type JKS \
             --ks-key-alias "$KEY_ALIAS" \
             --ks-pass env:KEYSTORE_PASSWORD \
             --key-pass env:KEY_PASSWORD \
             --out "$SIGNED_APK" \
-            app/build/outputs/apk/release/app-release-unsigned.apk
+            "$UNSIGNED_APK"
 
-          "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK"
+          "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK" > "$RUNNER_TEMP/apk-signature.txt"
+          EXPECTED_CERT="$(keytool -exportcert -keystore "$KEYSTORE_PATH" -storetype JKS \
+            -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | awk '{print tolower($1)}')"
+          ACTUAL_CERT="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print tolower($2)}' "$RUNNER_TEMP/apk-signature.txt")"
+          if [[ -z "$ACTUAL_CERT" || "$ACTUAL_CERT" != "$EXPECTED_CERT" ]]; then
+            echo "::error::APK certificate does not match the configured persistent release keystore."
+            exit 1
+          fi
           test -s "$SIGNED_APK"
-      - name: Upload verified V2 release APK
+
+          PACKAGE="$("$AAPT" dump badging "$SIGNED_APK" | sed -n "s/^package: name='\\([^']*\\)'.*/\\1/p" | head -n 1)"
+          VERSION_CODE="$("$AAPT" dump badging "$SIGNED_APK" | sed -n "s/^package:.* versionCode='\\([^']*\\)'.*/\\1/p" | head -n 1)"
+          VERSION_NAME="$("$AAPT" dump badging "$SIGNED_APK" | sed -n "s/^package:.* versionName='\\([^']*\\)'.*/\\1/p" | head -n 1)"
+          if [[ "$PACKAGE" != "com.peramsuneel.cleanplayer.glass" || "$VERSION_CODE" != "1" || "$VERSION_NAME" != "1.0-${GITHUB_SHA:0:7}" ]]; then
+            echo "::error::APK package/version metadata does not match the approved V2 release source."
+            exit 1
+          fi
+
+          {
+            echo "### Clean Player V2 APK verification"
+            echo "- APK: clean-player-v2.apk"
+            echo "- Package: $PACKAGE"
+            echo "- Version code: $VERSION_CODE"
+            echo "- Version name: $VERSION_NAME"
+            echo "- APK size: $(stat -c%s "$SIGNED_APK") bytes"
+            echo "- Persistent release certificate SHA-256: $ACTUAL_CERT"
+            echo "- Signature verification: passed"
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Upload verified V2 release APK only
         uses: actions/upload-artifact@v4
         with:
           name: clean-player-v2-release
