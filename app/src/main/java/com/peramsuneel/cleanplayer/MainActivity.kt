@@ -295,6 +295,10 @@ class MainActivity : AppCompatActivity() {
     private var playPauseButton: ImageButton? = null
     private var controlsHideRunnable: Runnable? = null
     private var gestureMode = 0
+    private var longPress2xRunnable: Runnable? = null
+    private var longPress2xActive = false
+    private var longPress2xPreviousParameters: androidx.media3.common.PlaybackParameters? = null
+    private var longPress2xIndicator: TextView? = null
     private var dragStartX = 0f
     private var dragStartY = 0f
     private var dragStartPosition = 0L
@@ -965,8 +969,12 @@ class MainActivity : AppCompatActivity() {
                 try {
                     if (PINCH_ZOOM_ENABLED) scaleDetector.onTouchEvent(event)
                 } catch (_: Exception) { }
-                if (playerControlsLocked || playerOptionsOpen) return@setOnTouchListener true
+                if (playerControlsLocked || playerOptionsOpen) {
+                    cancelLongPress2x()
+                    return@setOnTouchListener true
+                }
                 if (event.actionMasked == MotionEvent.ACTION_POINTER_DOWN || event.pointerCount >= 2) {
+                    cancelLongPress2x()
                     videoPinching = true
                     gestureMode = 3
                     view.parent?.requestDisallowInterceptTouchEvent(true)
@@ -992,10 +1000,12 @@ class MainActivity : AppCompatActivity() {
                         dragStartPosition = player?.currentPosition ?: 0L
                         dragTargetPosition = dragStartPosition
                         gestureMode = 0
+                        if (LONG_PRESS_2X_V21_ENABLED) scheduleLongPress2x()
                     }
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.x - dragStartX
                         val dy = event.y - dragStartY
+                        if (kotlin.math.abs(dx) > android.view.ViewConfiguration.get(this).scaledTouchSlop || kotlin.math.abs(dy) > android.view.ViewConfiguration.get(this).scaledTouchSlop) cancelLongPress2x()
                         if (gestureMode == 0 && videoZoomScale > 1f &&
                             (kotlin.math.abs(dx) > dp(6) || kotlin.math.abs(dy) > dp(6))) {
                             gestureMode = 4
@@ -1049,6 +1059,7 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
                     MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        cancelLongPress2x()
                         if (gestureMode == 1 && event.actionMasked == MotionEvent.ACTION_UP) {
                             val finalDelta = ((event.x - dragStartX) / pv.width.coerceAtLeast(1).toFloat() * 60_000L).toLong()
                             val duration = player?.duration?.takeIf { it > 0 } ?: Long.MAX_VALUE
@@ -1070,6 +1081,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 true
                 } catch (_: Exception) {
+                    cancelLongPress2x()
                     gestureMode = 0
                     videoPinching = false
                     true
@@ -1358,6 +1370,16 @@ class MainActivity : AppCompatActivity() {
         }
         playerSeekIndicator = indicator
         pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+        val holdIndicator = label("2x", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            background = GradientDrawable().apply { setColor(0xBF000000.toInt()); cornerRadius = dp(14).toFloat() }
+            visibility = View.GONE
+            elevation = dp(8).toFloat()
+        }
+        longPress2xIndicator = holdIndicator
+        pv.addView(holdIndicator, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(56) })
+
         val zoomIndicator = label("100%", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(9), dp(5), dp(9), dp(5))
@@ -2242,6 +2264,44 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun scheduleLongPress2x() {
+        if (!LONG_PRESS_2X_V21_ENABLED || playerControlsLocked || playerOptionsOpen) return
+        cancelLongPress2x()
+        val task = Runnable {
+            try {
+                if (!showingPlayer || playerControlsLocked || playerOptionsOpen || videoPinching || gestureMode != 0) return@Runnable
+                val exo = player ?: return@Runnable
+                val previous = exo.playbackParameters
+                longPress2xPreviousParameters = previous
+                exo.setPlaybackParameters(androidx.media3.common.PlaybackParameters(2f, previous.pitch))
+                longPress2xActive = true
+                longPress2xIndicator?.visibility = View.VISIBLE
+            } catch (_: Exception) {
+                cancelLongPress2x()
+            }
+        }
+        longPress2xRunnable = task
+        onlineHandler.postDelayed(task, 400L)
+    }
+
+    private fun cancelLongPress2x() {
+        try {
+            longPress2xRunnable?.let { onlineHandler.removeCallbacks(it) }
+            longPress2xRunnable = null
+            if (longPress2xActive) {
+                val previous = longPress2xPreviousParameters
+                if (previous != null) player?.setPlaybackParameters(previous)
+            }
+            longPress2xActive = false
+            longPress2xPreviousParameters = null
+            longPress2xIndicator?.visibility = View.GONE
+        } catch (_: Exception) {
+            longPress2xActive = false
+            longPress2xPreviousParameters = null
+            longPress2xIndicator?.visibility = View.GONE
+        }
+    }
+
     private fun applyScreenInsets(view: View) {
         ViewCompat.setOnApplyWindowInsetsListener(view) { target, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.statusBars() or WindowInsetsCompat.Type.navigationBars())
@@ -2870,6 +2930,7 @@ class MainActivity : AppCompatActivity() {
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
+        cancelLongPress2x()
         controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
         seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
         seekFeedbackHideRunnable = null
