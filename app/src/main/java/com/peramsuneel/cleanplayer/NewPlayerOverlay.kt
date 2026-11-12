@@ -26,6 +26,8 @@ internal class NewPlayerOverlay(
     private val onAudio: (View) -> Unit,
     private val onSubtitles: (View) -> Unit,
     private val onSpeed: (View) -> Unit,
+    private val onPip: () -> Unit,
+    private val onPlaylist: () -> Unit,
     private val onFlip: (View) -> Unit,
     private val onRepeat: (ImageButton) -> Unit,
     private val onLock: (ImageButton) -> Unit,
@@ -123,13 +125,13 @@ internal class NewPlayerOverlay(
             elevation = 0f
         }
         val aspect = iconButton(R.drawable.pl_ic_aspect_ratio, "Aspect ratio")
+        val mute = iconButton(R.drawable.pl_ic_volume_up, "Mute")
+        rightActions.addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
+        mute.setOnClickListener { onMute(mute) }
         if (PLAYER_TOP_ROW_LAYOUT_ENABLED) {
             rightActions.addView(aspect, LinearLayout.LayoutParams(dp(48), dp(48)))
             aspect.setOnClickListener { onAspect(aspect) }
         }
-        val mute = iconButton(R.drawable.pl_ic_volume_up, "Mute")
-        rightActions.addView(mute, LinearLayout.LayoutParams(dp(48), dp(48)))
-        mute.setOnClickListener { onMute(mute) }
         top.addView(rightActions, ConstraintLayout.LayoutParams(-2, dp(48)))
 
         val optionsScroll = HorizontalScrollView(context).apply {
@@ -141,32 +143,46 @@ internal class NewPlayerOverlay(
             clipChildren = false
             clipToPadding = false
             isFillViewport = true
-            setPadding(dp(8), 0, dp(8), 0)
+            setPadding(if (ICON_ROW_LEFT_V21_ENABLED) 0 else dp(8), 0, dp(8), 0)
         }
         val options = LinearLayout(context).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL or if (OVERLAY_ROW_FIX_V21_ENABLED) Gravity.START else Gravity.END
-            setPadding(if (OVERLAY_ROW_FIX_V21_ENABLED) dp(4) else 0, 0, if (OVERLAY_ROW_FIX_V21_ENABLED) dp(4) else 0, 0)
+            gravity = Gravity.CENTER_VERTICAL or if (ICON_ROW_LEFT_V21_ENABLED) Gravity.START else Gravity.END
+            setPadding(if (ICON_ROW_LEFT_V21_ENABLED) 0 else dp(4), 0, if (ICON_ROW_LEFT_V21_ENABLED) 0 else dp(4), 0)
         }
         fun option(icon: Int, description: String, click: (View) -> Unit): ImageButton {
             val button = iconButton(icon, description)
             options.addView(button, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
-                if (OVERLAY_ROW_FIX_V21_ENABLED) { marginStart = dp(2); marginEnd = dp(2) }
+                if (ICON_ROW_LEFT_V21_ENABLED && options.childCount > 0) marginStart = dp(4)
             })
             button.setOnClickListener { view -> click(view) }
             return button
         }
 
-        option(R.drawable.pl_ic_audiotrack, "Audio track", onAudio)
-        val subtitleButton = option(R.drawable.pl_ic_closed_caption, "Subtitles", onSubtitles)
-        subtitleButton.tag = "player-subtitles-button"
-        option(R.drawable.pl_ic_speed, "Playback speed", onSpeed)
-        option(R.drawable.pl_ic_flip, "Flip video", onFlip)
         val repeat = iconButton(R.drawable.pl_ic_repeat, "Repeat")
-        options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
-            if (OVERLAY_ROW_FIX_V21_ENABLED) { marginStart = dp(2); marginEnd = dp(2) }
-        })
-        repeat.setOnClickListener { onRepeat(repeat) }
+        if (ICON_ROW_LEFT_V21_ENABLED) {
+            try {
+                option(R.drawable.pl_ic_audiotrack, "Audio track") { onAudio(it) }
+                val subtitleButton = option(R.drawable.pl_ic_closed_caption, "Subtitles") { onSubtitles(it) }
+                subtitleButton.tag = "player-subtitles-button"
+                option(R.drawable.pl_ic_speed, "Playback speed") { onSpeed(it) }
+                option(R.drawable.pl_ic_picture_in_picture_alt, "Picture in picture") { onPip() }
+                option(R.drawable.pl_ic_playlist_play, "Playlist") { onPlaylist() }
+                option(R.drawable.pl_ic_flip, "Flip video") { onFlip(it) }
+                options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
+                    marginStart = dp(4)
+                })
+                repeat.setOnClickListener { onRepeat(repeat) }
+            } catch (_: Exception) { }
+        } else {
+            option(R.drawable.pl_ic_audiotrack, "Audio track") { onAudio(it) }
+            val subtitleButton = option(R.drawable.pl_ic_closed_caption, "Subtitles") { onSubtitles(it) }
+            subtitleButton.tag = "player-subtitles-button"
+            option(R.drawable.pl_ic_speed, "Playback speed") { onSpeed(it) }
+            option(R.drawable.pl_ic_flip, "Flip video") { onFlip(it) }
+            options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)))
+            repeat.setOnClickListener { onRepeat(repeat) }
+        }
         optionsScroll.addView(options, ViewGroup.LayoutParams(-2, dp(48)))
         top.addView(optionsScroll, ConstraintLayout.LayoutParams(0, dp(48)))
 
@@ -184,8 +200,8 @@ internal class NewPlayerOverlay(
             connect(rightActions.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
             connect(rightActions.id, ConstraintSet.TOP, back.id, ConstraintSet.TOP)
             connect(rightActions.id, ConstraintSet.BOTTOM, back.id, ConstraintSet.BOTTOM)
-            connect(optionsScroll.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START)
-            connect(optionsScroll.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END)
+            connect(optionsScroll.id, ConstraintSet.START, if (ICON_ROW_LEFT_V21_ENABLED) name.id else ConstraintSet.PARENT_ID, ConstraintSet.START)
+            connect(optionsScroll.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
             connect(optionsScroll.id, ConstraintSet.TOP, back.id, ConstraintSet.BOTTOM, dp(8))
             applyTo(top)
         }

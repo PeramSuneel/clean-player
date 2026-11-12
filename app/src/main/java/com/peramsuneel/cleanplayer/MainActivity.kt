@@ -100,6 +100,7 @@ private const val PINCH_ZOOM_ENABLED = true
 private const val ASPECT_RATIO_V21_ENABLED = true
 private const val LONG_PRESS_2X_V21_ENABLED = true
 internal const val OVERLAY_ROW_FIX_V21_ENABLED = true
+internal const val ICON_ROW_LEFT_V21_ENABLED = true
 private const val SEEK_BAR_STEP_MS = 3_000L
 private const val NEW_PLAYER_UI_ENABLED = true
 internal const val NEW_PLAYER_PIP_ENABLED = true
@@ -1587,6 +1588,27 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) { }
             },
             onSpeed = { showPlaybackSpeedMenu(it); showPlayerControls() },
+            onPip = { try { enterPlayerPictureInPicture(pv) } catch (_: Exception) { } },
+            onPlaylist = {
+                try {
+                    val names = queue.map { it.name }.toTypedArray()
+                    if (names.isNotEmpty()) {
+                        android.app.AlertDialog.Builder(this)
+                            .setTitle("Playlist")
+                            .setItems(names) { _, which ->
+                                try {
+                                    currentIndex = which
+                                    player?.seekTo(which, 0L)
+                                    player?.play()
+                                    updatePlayerTitle()
+                                    showPlayerControls()
+                                } catch (_: Exception) { }
+                            }
+                            .setNegativeButton("Close", null)
+                            .show()
+                    }
+                } catch (_: Exception) { }
+            },
             onFlip = {
                 try {
                     playerVideoFlipped = !playerVideoFlipped
@@ -2246,11 +2268,20 @@ class MainActivity : AppCompatActivity() {
             popup.width = popupWidth
             val location = IntArray(2)
             anchor.getLocationOnScreen(location)
-            if (compact || keepOnScreen) {
+            if (compact) {
                 val screenHeight = resources.displayMetrics.heightPixels
-                val below = location[1] + anchor.height + dp(4)
-                val above = location[1] - popupHeight - dp(4)
-                val y = if (below + popupHeight <= screenHeight - dp(12)) below else above.coerceAtLeast(dp(12)).coerceAtMost((screenHeight - popupHeight - dp(12)).coerceAtLeast(dp(12)))
+                // Keep Size below the title and icon row, aligned to the screen's right edge.
+                val y = location[1] + anchor.height + dp(56)
+                val availableHeight = (screenHeight - y - dp(12)).coerceAtLeast(dp(48))
+                popup.height = minOf(popupHeight, availableHeight)
+                val x = (resources.displayMetrics.widthPixels - popupWidth - dp(12)).coerceAtLeast(dp(12))
+                popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
+            } else if (keepOnScreen) {
+                val screenHeight = resources.displayMetrics.heightPixels
+                // Audio/subtitle menus stay below their own icon; scroll within the available space.
+                val y = location[1] + anchor.height + dp(4)
+                val availableHeight = (screenHeight - y - dp(12)).coerceAtLeast(dp(48))
+                popup.height = minOf(popupHeight, availableHeight)
                 val x = location[0].coerceIn(dp(12), (resources.displayMetrics.widthPixels - popupWidth - dp(12)).coerceAtLeast(dp(12)))
                 popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
             } else {
