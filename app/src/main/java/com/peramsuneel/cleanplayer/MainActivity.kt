@@ -1005,7 +1005,7 @@ class MainActivity : AppCompatActivity() {
                     MotionEvent.ACTION_MOVE -> {
                         val dx = event.x - dragStartX
                         val dy = event.y - dragStartY
-                        if (kotlin.math.abs(dx) > android.view.ViewConfiguration.get(this).scaledTouchSlop || kotlin.math.abs(dy) > android.view.ViewConfiguration.get(this).scaledTouchSlop) cancelLongPress2x()
+                        if (kotlin.math.abs(dx) > android.view.ViewConfiguration.get(this@MainActivity).scaledTouchSlop || kotlin.math.abs(dy) > android.view.ViewConfiguration.get(this).scaledTouchSlop) cancelLongPress2x()
                         if (gestureMode == 0 && videoZoomScale > 1f &&
                             (kotlin.math.abs(dx) > dp(6) || kotlin.math.abs(dy) > dp(6))) {
                             gestureMode = 4
@@ -2147,9 +2147,9 @@ class MainActivity : AppCompatActivity() {
         anchor: View,
         labels: List<String>,
         actions: List<(() -> Unit)?>?,
-        onSelect: (String) -> Unit,
         compact: Boolean = false,
-        keepOnScreen: Boolean = false
+        keepOnScreen: Boolean = false,
+        onSelect: (String) -> Unit
     ) {
         try {
             controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
