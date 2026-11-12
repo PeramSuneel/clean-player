@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-APK="\${GITHUB_WORKSPACE:-$PWD}/app/build/outputs/apk/debug/app-debug.apk"
+APK="${GITHUB_WORKSPACE:-$PWD}/app/build/outputs/apk/debug/app-debug.apk"
 PACKAGE_ID="com.peramsuneel.cleanplayer.glass"
-SERIAL="\${ANDROID_SERIAL:-emulator-5554}"
+SERIAL="${ANDROID_SERIAL:-emulator-5554}"
 
-echo "Workspace: \${GITHUB_WORKSPACE:-$PWD}"
+echo "Workspace: ${GITHUB_WORKSPACE:-$PWD}"
 echo "Checking APK: $APK"
 if [[ ! -s "$APK" ]]; then
   echo "::error::Debug APK is missing or empty at the expected path."
-  find "\${GITHUB_WORKSPACE:-$PWD}/app/build/outputs/apk" -maxdepth 5 -type f -name '*.apk' -print 2>/dev/null || true
+  find "${GITHUB_WORKSPACE:-$PWD}/app/build/outputs/apk" -maxdepth 5 -type f -name '*.apk' -print 2>/dev/null || true
   exit 1
 fi
 ls -lh "$APK"
@@ -47,7 +47,7 @@ wait_for_android() {
     state="$(adb -s "$SERIAL" get-state 2>/dev/null || true)"
     if [[ "$state" != "device" ]]; then
       consecutive=0
-      echo "Attempt $attempt/120: ADB state is \${state:-unavailable}; waiting for device transport."
+      echo "Attempt $attempt/120: ADB state is ${state:-unavailable}; waiting for device transport."
       sleep 2
       continue
     fi
@@ -56,7 +56,7 @@ wait_for_android() {
     bootanim="$(adb_probe shell getprop init.svc.bootanim 2>/dev/null | tr -d '\r' || true)"
     if [[ "$booted" != "1" || "$bootanim" != "stopped" ]]; then
       consecutive=0
-      echo "Attempt $attempt/120: boot_completed=\${booted:-unavailable}, boot_animation=\${bootanim:-unavailable}."
+      echo "Attempt $attempt/120: boot_completed=${booted:-unavailable}, boot_animation=${bootanim:-unavailable}."
       sleep 2
       continue
     fi
@@ -80,22 +80,22 @@ wait_for_android() {
     else
       consecutive=0
       echo "Attempt $attempt/120: Android framework is not fully ready."
-      echo "Input: \${input_status:-unavailable}"
-      echo "Activity Manager: \${activity_status:-unavailable}"
-      echo "Package Manager: \${package_status:-unavailable}"
+      echo "Input: ${input_status:-unavailable}"
+      echo "Activity Manager: ${activity_status:-unavailable}"
+      echo "Package Manager: ${package_status:-unavailable}"
     fi
 
     sleep 2
   done
 
   echo "::error::Emulator did not remain healthy across three consecutive readiness probes within 240 seconds."
-  echo "Last ADB state: \${state:-unavailable}"
-  echo "Last boot_completed: \${booted:-unavailable}"
-  echo "Last boot animation: \${bootanim:-unavailable}"
-  echo "Last input service: \${input_status:-unavailable}"
-  echo "Last Activity Manager: \${activity_status:-unavailable}"
-  echo "Last Package Manager: \${package_status:-unavailable}"
-  echo "Last Settings probe: \${settings_value:-unavailable}"
+  echo "Last ADB state: ${state:-unavailable}"
+  echo "Last boot_completed: ${booted:-unavailable}"
+  echo "Last boot animation: ${bootanim:-unavailable}"
+  echo "Last input service: ${input_status:-unavailable}"
+  echo "Last Activity Manager: ${activity_status:-unavailable}"
+  echo "Last Package Manager: ${package_status:-unavailable}"
+  echo "Last Settings probe: ${settings_value:-unavailable}"
   return 1
 }
 
