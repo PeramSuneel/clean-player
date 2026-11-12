@@ -85,7 +85,7 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$SIGNED_APK" > "$RUNNER_TEMP/apk-signature.txt"
           EXPECTED_CERT="$(keytool -exportcert -keystore "$KEYSTORE_PATH" -storetype JKS \
             -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" | sha256sum | awk '{print tolower($1)}')"
-          ACTUAL_CERT="$(awk -F': ' '/Signer #1 certificate SHA-256 digest:/ {print $2}' "$RUNNER_TEMP/apk-signature.txt" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
+          ACTUAL_CERT="$(awk '/certificate SHA-256 digest:/ { sub(/^.*certificate SHA-256 digest:[[:space:]]*/, ""); print; exit }' "$RUNNER_TEMP/apk-signature.txt" | tr -d ':[:space:]' | tr '[:upper:]' '[:lower:]')"
           if [[ -z "$ACTUAL_CERT" || "$ACTUAL_CERT" != "$EXPECTED_CERT" ]]; then
             echo "::error::APK certificate fingerprint comparison failed."
             echo "Expected certificate SHA-256 from configured keystore: $EXPECTED_CERT"
