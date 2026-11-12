@@ -51,15 +51,19 @@ jobs:
           AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n 1)"
           EMULATOR="$ANDROID_HOME/emulator/emulator"
 
-          echo "Checking Android SDK tools..."
+          echo "Checking Android command-line tools..."
           test -x "$SDKMANAGER"
           test -x "$AVDMANAGER"
-          test -x "$EMULATOR"
           "$SDKMANAGER" --version
 
           echo "Accepting Android SDK licenses..."
-          LICENSE_ANSWERS="$(printf 'y\n%.0s' {1..30})"
+          LICENSE_ANSWERS="$(printf 'y\\n%.0s' {1..30})"
           "$SDKMANAGER" --licenses <<< "$LICENSE_ANSWERS"
+
+          echo "Installing the Android emulator SDK component..."
+          "$SDKMANAGER" --install "emulator"
+          test -x "$EMULATOR"
+          "$EMULATOR" -version
 
           echo "Installing Android API 35 Google APIs x86_64 system image..."
           "$SDKMANAGER" --install "system-images;android-35;google_apis;x86_64"
