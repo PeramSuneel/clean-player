@@ -41,19 +41,42 @@ jobs:
           APKSIGNER="$(find "$ANDROID_HOME/build-tools" -type f -name apksigner | sort -V | tail -n 1)"
           test -n "$APKSIGNER"
           "$APKSIGNER" verify --verbose --print-certs app/build/outputs/apk/debug/app-debug.apk
-      - name: Install and launch Debug APK on a clean Android emulator
-        uses: soloturn/android-emulator-runner@ab495a9b42f2af30f5222bd978136f9b0a85b68a
-        with:
-          api-level: 35
-          target: google_apis
-          arch: x86_64
-          cores: 2
-          ram-size: 3072M
-          heap-size: 512M
-          disk-size: 6G
-          emulator-boot-timeout: 900
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
-          script: bash .github/scripts/verify-emulator-install.sh
+      - name: Create and start a clean Android API 35 emulator
+        run: |
+          set -euo pipefail
+          SDKMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name sdkmanager | sort -V | tail -n 1)"
+          AVDMANAGER="$(find "$ANDROID_HOME/cmdline-tools" -type f -name avdmanager | sort -V | tail -n 1)"
+          EMULATOR="$ANDROID_HOME/emulator/emulator"
+          test -x "$SDKMANAGER"
+          test -x "$AVDMANAGER"
+          test -x "$EMULATOR"
+
+          yes | "$SDKMANAGER" --licenses >/dev/null
+          "$SDKMANAGER" --install "system-images;android-35;google_apis;x86_64"
+
+          echo "no" | "$AVDMANAGER" create avd \\
+            --force \\
+            --name clean-player-api35 \\
+            --package "system-images;android-35;google_apis;x86_64" \\
+            --device pixel_2
+
+          nohup "$EMULATOR" \\
+            -avd clean-player-api35 \\
+            -port 5554 \\
+            -no-window \\
+            -gpu swiftshader_indirect \\
+            -no-snapshot \\
+            -noaudio \\
+            -no-boot-anim \\
+            > "$RUNNER_TEMP/clean-player-emulator.log" 2>&1 < /dev/null &
+          echo "$!" > "$RUNNER_TEMP/clean-player-emulator.pid"
+
+          adb start-server
+          echo "Android emulator process started; waiting for device transport..."
+          timeout 900s adb -s emulator-5554 wait-for-device
+
+      - name: Install and launch Debug APK on the clean Android emulator
+        run: bash .github/scripts/verify-emulator-install.sh
       - name: Build release APK
         run: gradle --no-daemon :app:assembleRelease
       - name: Sign release APK when signing secrets are configured
