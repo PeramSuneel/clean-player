@@ -1,0 +1,112 @@
+name: Create Clean Player V2 Release Signing Key
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: Type CREATE_PERMANENT_V2_KEY to confirm one-time key creation
+        required: true
+        type: string
+jobs:
+  create-signing-key:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Confirm one-time key creation
+        env:
+          CONFIRMATION: ${{ inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [[ "$CONFIRMATION" != "CREATE_PERMANENT_V2_KEY" ]]; then
+            echo "::error::Confirmation text did not match. No key was created."
+            exit 1
+          fi
+      - name: Check required password and alias secrets
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in KEYSTORE_PASSWORD KEY_ALIAS KEY_PASSWORD; do
+            if [[ -z "${!name:-}" ]]; then missing+=("$name"); fi
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf '::error::Before running this workflow, add the following repository Actions secrets: %s. Use GitHub Settings > Secrets and variables > Actions > New repository secret. No key was created.\n' "${missing[*]}"
+            exit 1
+          fi
+      - name: Prevent accidental key regeneration
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: ".github/workflows/create-release-signing-key.yml",
+              branch: "clean-player-v2-release",
+              status: "success",
+              per_page: 100
+            });
+            const previous = runs.data.workflow_runs.filter(run => run.id !== context.runId);
+            if (previous.length > 0) {
+              core.setFailed("A successful signing-key setup run already exists. Do not regenerate the permanent key. Retrieve the original signing artifact or request explicit approval before any replacement.");
+            }
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Create password-protected permanent JKS
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p signing-output
+          KEYSTORE="signing-output/clean-player-v2-release.jks"
+          if [[ -e "$KEYSTORE" ]]; then
+            echo "::error::Keystore file already exists; refusing to overwrite it."
+            exit 1
+          fi
+          keytool -genkeypair -noprompt \
+            -alias "$KEY_ALIAS" \
+            -keyalg RSA -keysize 4096 \
+            -sigalg SHA256withRSA \
+            -validity 10000 \
+            -storetype JKS \
+            -keystore "$KEYSTORE" \
+            -dname "CN=Clean Player V2 Release, OU=Android, O=PeramSuneel, L=Bengaluru, ST=Karnataka, C=IN" \
+            -storepass:env KEYSTORE_PASSWORD \
+            -keypass:env KEY_PASSWORD
+          keytool -list -keystore "$KEYSTORE" -storetype JKS \
+            -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" >/dev/null
+          base64 -w 0 "$KEYSTORE" > signing-output/KEYSTORE_BASE64.txt
+          printf '\n' >> signing-output/KEYSTORE_BASE64.txt
+          cat > signing-output/README.txt <<'EOF'
+Clean Player V2 permanent Android release signing key
+
+Files:
+- clean-player-v2-release.jks: password-protected Java keystore.
+- KEYSTORE_BASE64.txt: Base64 representation of that same encrypted JKS file.
+
+IMPORTANT:
+1. Download and securely retain BOTH files. Keep an additional encrypted backup in a secure location you control.
+2. Never commit either file to Git or share them publicly.
+3. In GitHub repository Settings > Secrets and variables > Actions, add KEYSTORE_BASE64 using the complete text from KEYSTORE_BASE64.txt.
+4. The repository secrets KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD used to create this key must remain unchanged.
+5. Losing the JKS or its passwords means future APK updates cannot be signed as the same app publisher. Do not regenerate this key for routine releases.
+6. The Base64 text is only an encoding of the encrypted JKS, not an additional encryption layer.
+EOF
+      - name: Upload one-time signing material
+        uses: actions/upload-artifact@v4
+        with:
+          name: clean-player-v2-signing-material
+          path: |
+            signing-output/clean-player-v2-release.jks
+            signing-output/KEYSTORE_BASE64.txt
+            signing-output/README.txt
+          if-no-files-found: error
+          retention-days: 90
