@@ -1,1 +1,1 @@
-Retry simplified signing setup after Run #10; no application source changes.
+Retry signing setup after fixing YAML indentation on the README generation step.
