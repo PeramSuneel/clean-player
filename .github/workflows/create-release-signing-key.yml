@@ -56,16 +56,16 @@ jobs:
             -storepass:env KEYSTORE_PASSWORD -alias "$KEY_ALIAS" >/dev/null
           base64 -w 0 "$KEYSTORE" > signing-output/KEYSTORE_BASE64.txt
           printf '\n' >> signing-output/KEYSTORE_BASE64.txt
-          cat > signing-output/README.txt <<'EOF'
-Clean Player V2 permanent Android release signing key
-
-Download and securely retain BOTH clean-player-v2-release.jks and KEYSTORE_BASE64.txt.
-Keep an additional encrypted backup. Never commit or share either file publicly.
-Add the complete contents of KEYSTORE_BASE64.txt as repository Actions secret KEYSTORE_BASE64.
-Keep KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD unchanged.
-Losing the keystore or passwords prevents future updates from being signed with this publisher key.
-Do not regenerate this key for routine releases.
-EOF
+          printf '%s\n' \
+            'Clean Player V2 permanent Android release signing key' \
+            '' \
+            'Download and securely retain BOTH clean-player-v2-release.jks and KEYSTORE_BASE64.txt.' \
+            'Keep an additional encrypted backup. Never commit or share either file publicly.' \
+            'Add the complete contents of KEYSTORE_BASE64.txt as repository Actions secret KEYSTORE_BASE64.' \
+            'Keep KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD unchanged.' \
+            'Losing the keystore or passwords prevents future updates from being signed with this publisher key.' \
+            'Do not regenerate this key for routine releases.' \
+            > signing-output/README.txt
 
       - name: Upload one-time signing material
         uses: actions/upload-artifact@v4
