@@ -1,1 +1,1 @@
-This marker file is used only to trigger the one-time signing-key setup workflow after the owner has configured the three required Actions secrets. Do not add credentials here.
+Trigger the one-time Clean Player V2 signing-key setup after the owner configured KEYSTORE_PASSWORD, KEY_ALIAS and KEY_PASSWORD. This file must never contain credentials.
