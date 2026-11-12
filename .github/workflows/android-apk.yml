@@ -1,4 +1,5 @@
 name: Build Clean Player V2 Release APK
+# Triggered after permanent release signing secrets were configured.
 on:
   workflow_dispatch:
   push:
