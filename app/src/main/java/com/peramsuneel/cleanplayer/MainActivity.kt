@@ -768,7 +768,7 @@ class MainActivity : AppCompatActivity() {
                 details.addView(label(formatDuration(file.duration), 12, muted, true).apply {
                     setPadding(dp(8), dp(4), dp(8), dp(4))
                     background = LiquidGlass.button(this@MainActivity, false)
-                })
+                }, LinearLayout.LayoutParams(-2, -2))
                 row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
                 content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
                 row.setOnClickListener { playItems(items, index) }
