@@ -878,6 +878,7 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
                 applyVideoDefaultOrientation(videoSize)
+                if (ASPECT_RATIO_V21_ENABLED && isOriginalAspectRatioSelected()) applyOriginalPixelScale()
             }
         })
         showPlayer()
@@ -1588,27 +1589,6 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) { }
             },
             onSpeed = { showPlaybackSpeedMenu(it); showPlayerControls() },
-            onPip = { try { enterPlayerPictureInPicture(pv) } catch (_: Exception) { } },
-            onPlaylist = {
-                try {
-                    val names = queue.map { it.name }.toTypedArray()
-                    if (names.isNotEmpty()) {
-                        android.app.AlertDialog.Builder(this)
-                            .setTitle("Playlist")
-                            .setItems(names) { _, which ->
-                                try {
-                                    currentIndex = which
-                                    player?.seekTo(which, 0L)
-                                    player?.play()
-                                    updatePlayerTitle()
-                                    showPlayerControls()
-                                } catch (_: Exception) { }
-                            }
-                            .setNegativeButton("Close", null)
-                            .show()
-                    }
-                } catch (_: Exception) { }
-            },
             onFlip = {
                 try {
                     playerVideoFlipped = !playerVideoFlipped
@@ -2104,7 +2084,7 @@ class MainActivity : AppCompatActivity() {
             val contentFrame = view.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)
             if (label == "16:9" || label == "4:3") {
                 contentFrame?.setAspectRatio(if (label == "16:9") 16f / 9f else 4f / 3f)
-            } else {
+            } else if (label != "Original") {
                 contentFrame?.setAspectRatio(0f)
             }
             resetVideoZoom()
@@ -2120,20 +2100,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun applyOriginalPixelScale() {
         try {
-            val texture = videoTransformView ?: return
             val videoSize = player?.videoSize ?: return
-            if (videoSize.width <= 0 || videoSize.height <= 0) return
-            texture.post {
-                try {
-                    val width = texture.width.toFloat()
-                    val height = texture.height.toFloat()
-                    if (width <= 0f || height <= 0f || !isOriginalAspectRatioSelected()) return@post
-                    val scale = minOf(1f, videoSize.width / width, videoSize.height / height)
-                    videoZoomScale = 1f
-                    videoZoomMatrix.reset()
-                    videoZoomMatrix.setScale(scale, scale, width / 2f, height / 2f)
-                    applyVideoZoomTransform()
-                } catch (_: Exception) { }
+            if (videoSize.width <= 0 || videoSize.height <= 0 || !isOriginalAspectRatioSelected()) return
+
+            // Use decoded source dimensions, including non-square pixels and
+            // metadata rotation. FIT letterboxes without stretching or cropping.
+            var ratio = videoSize.width.toFloat() * videoSize.pixelWidthHeightRatio / videoSize.height.toFloat()
+            if (videoSize.unappliedRotationDegrees % 180 != 0) ratio = 1f / ratio
+            if (ratio <= 0f || ratio.isNaN() || ratio.isInfinite()) return
+
+            val contentFrame = playerView?.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(
+                androidx.media3.ui.R.id.exo_content_frame
+            )
+            playerView?.resizeMode = androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT
+            contentFrame?.setAspectRatio(ratio)
+
+            videoZoomScale = 1f
+            videoZoomMatrix.reset()
+            videoTransformView?.let { texture ->
+                texture.post { try { applyVideoZoomTransform() } catch (_: Exception) { } }
             }
         } catch (_: Exception) { }
     }
@@ -2245,6 +2230,7 @@ class MainActivity : AppCompatActivity() {
             val popupHeight = minOf(content.measuredHeight, resources.displayMetrics.heightPixels - dp(48)).coerceAtLeast(dp(80))
             val popupScroll = ScrollView(this).apply {
                 isFillViewport = false
+                isVerticalScrollBarEnabled = false
                 addView(content, ViewGroup.LayoutParams(if (compact) -2 else -1, -2))
             }
             val popup = PopupWindow(popupScroll, if (compact) content.measuredWidth else dp(260), popupHeight, true).apply {
@@ -2268,27 +2254,34 @@ class MainActivity : AppCompatActivity() {
             popup.width = popupWidth
             val location = IntArray(2)
             anchor.getLocationOnScreen(location)
-            if (compact) {
-                val screenHeight = resources.displayMetrics.heightPixels
-                // Keep Size below the title and icon row, aligned to the screen's right edge.
-                val y = location[1] + anchor.height + dp(56)
-                val availableHeight = (screenHeight - y - dp(12)).coerceAtLeast(dp(48))
-                popup.height = minOf(popupHeight, availableHeight)
-                val x = (resources.displayMetrics.widthPixels - popupWidth - dp(12)).coerceAtLeast(dp(12))
-                popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
-            } else if (keepOnScreen) {
-                val screenHeight = resources.displayMetrics.heightPixels
-                // Audio/subtitle menus stay below their own icon; scroll within the available space.
-                val y = location[1] + anchor.height + dp(4)
-                val availableHeight = (screenHeight - y - dp(12)).coerceAtLeast(dp(48))
-                popup.height = minOf(popupHeight, availableHeight)
-                val x = location[0].coerceIn(dp(12), (resources.displayMetrics.widthPixels - popupWidth - dp(12)).coerceAtLeast(dp(12)))
-                popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
+            val screenHeight = resources.displayMetrics.heightPixels
+            val screenWidth = resources.displayMetrics.widthPixels
+            val seekLocation = IntArray(2)
+            val seekTop = playerSeekBar?.let { seek ->
+                seek.getLocationOnScreen(seekLocation)
+                seekLocation[1]
+            } ?: (screenHeight - dp(96))
+            val safeBottom = (seekTop - dp(8)).coerceAtLeast(dp(1))
+
+            // Size opens below the complete top options row; other menus open below
+            // their own anchor. All menus are clipped to the space above the seek bar.
+            val optionsRowBottom = if (compact) {
+                playerTopBar?.findViewWithTag<View>("player-options-row")?.let { row ->
+                    val rowLocation = IntArray(2)
+                    row.getLocationOnScreen(rowLocation)
+                    rowLocation[1] + row.height
+                }
+            } else null
+            val y = maxOf(location[1] + anchor.height + dp(4), optionsRowBottom?.plus(dp(4)) ?: 0)
+            val availableHeight = (safeBottom - y).coerceAtLeast(dp(1))
+            popup.height = minOf(popupHeight, availableHeight)
+
+            val x = if (compact) {
+                (location[0] + anchor.width - popupWidth).coerceIn(dp(12), (screenWidth - popupWidth - dp(12)).coerceAtLeast(dp(12)))
             } else {
-                val minOffset = dp(12) - location[0]
-                val maxOffset = resources.displayMetrics.widthPixels - dp(12) - popupWidth - location[0]
-                popup.showAsDropDown(anchor, minOf(maxOffset, maxOf(minOffset, 0)), dp(4), Gravity.START)
+                location[0].coerceIn(dp(12), (screenWidth - popupWidth - dp(12)).coerceAtLeast(dp(12)))
             }
+            popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
             if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
                 content.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150L).start()
             }
@@ -2849,6 +2842,7 @@ class MainActivity : AppCompatActivity() {
             }
             override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
                 applyVideoDefaultOrientation(videoSize)
+                if (ASPECT_RATIO_V21_ENABLED && isOriginalAspectRatioSelected()) applyOriginalPixelScale()
             }
         })
         try { if (SPEED_LABEL_LIVE_ENABLED) playerSpeedLabel?.text = "1X"; exo.setPlaybackParameters(androidx.media3.common.PlaybackParameters(1f)) } catch (_: Exception) { }
