@@ -26,8 +26,6 @@ internal class NewPlayerOverlay(
     private val onAudio: (View) -> Unit,
     private val onSubtitles: (View) -> Unit,
     private val onSpeed: (View) -> Unit,
-    private val onPip: () -> Unit,
-    private val onPlaylist: () -> Unit,
     private val onFlip: (View) -> Unit,
     private val onRepeat: (ImageButton) -> Unit,
     private val onLock: (ImageButton) -> Unit,
@@ -136,6 +134,7 @@ internal class NewPlayerOverlay(
 
         val optionsScroll = HorizontalScrollView(context).apply {
             id = View.generateViewId()
+            tag = "player-options-row"
             setBackgroundColor(Color.TRANSPARENT)
             elevation = 0f
             isHorizontalScrollBarEnabled = false
@@ -166,8 +165,6 @@ internal class NewPlayerOverlay(
                 val subtitleButton = option(R.drawable.pl_ic_closed_caption, "Subtitles") { onSubtitles(it) }
                 subtitleButton.tag = "player-subtitles-button"
                 option(R.drawable.pl_ic_speed, "Playback speed") { onSpeed(it) }
-                option(R.drawable.pl_ic_picture_in_picture_alt, "Picture in picture") { onPip() }
-                option(R.drawable.pl_ic_playlist_play, "Playlist") { onPlaylist() }
                 option(R.drawable.pl_ic_flip, "Flip video") { onFlip(it) }
                 options.addView(repeat, LinearLayout.LayoutParams(dp(48), dp(48)).apply {
                     marginStart = dp(4)
@@ -200,7 +197,8 @@ internal class NewPlayerOverlay(
             connect(rightActions.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
             connect(rightActions.id, ConstraintSet.TOP, back.id, ConstraintSet.TOP)
             connect(rightActions.id, ConstraintSet.BOTTOM, back.id, ConstraintSet.BOTTOM)
-            connect(optionsScroll.id, ConstraintSet.START, if (ICON_ROW_LEFT_V21_ENABLED) name.id else ConstraintSet.PARENT_ID, ConstraintSet.START)
+            // Anchor the options row to the physical left side in both orientations.
+            connect(optionsScroll.id, ConstraintSet.START, ConstraintSet.PARENT_ID, ConstraintSet.START, sideMargin)
             connect(optionsScroll.id, ConstraintSet.END, ConstraintSet.PARENT_ID, ConstraintSet.END, sideMargin)
             connect(optionsScroll.id, ConstraintSet.TOP, back.id, ConstraintSet.BOTTOM, dp(8))
             applyTo(top)
