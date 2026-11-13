@@ -529,7 +529,7 @@ class MainActivity : AppCompatActivity() {
         themeButton.setOnClickListener { isDark = !isDark; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("dark_theme", isDark).apply(); applyPalette(); showHome(search.text.toString()) }
         header.addView(toolbar)
         search = EditText(this).apply {
-            hint = "Search videos or folders"
+            hint = "Search videos or folders on this device"
             setSingleLine(true); textSize = 15f; setTextColor(this@MainActivity.text); setHintTextColor(muted)
             setPadding(dp(14), 0, dp(14), 0); background = LiquidGlass.panel(this@MainActivity)
             setText(filter)
