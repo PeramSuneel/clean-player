@@ -102,7 +102,7 @@ internal const val PLAYER_ICON_ROW_LAYOUT_ENABLED = true
 internal const val PLAYER_COMPACT_BOTTOM_ENABLED = true
 internal const val PLAYER_PERCENT_ALIGNMENT_ENABLED = true
 
-private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val duration: Long)
+private data class MediaFile(val id: Long, val name: String, val uri: Uri, val folder: String, val duration: Long, val isAudio: Boolean = false)
 
 private class PlayerSeekBar(
     context: Context,
@@ -413,7 +413,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun hasMediaPermission(): Boolean {
-        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
+        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO)
             else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         return permissions.all { ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED }
     }
@@ -439,14 +439,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadLibrary() {
         files.clear()
-        if (Build.VERSION.SDK_INT >= 33) {
-            query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-        } else {
-            query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI)
-        }
+        query(MediaStore.Video.Media.EXTERNAL_CONTENT_URI, isAudio = false)
+        query(MediaStore.Audio.Media.EXTERNAL_CONTENT_URI, isAudio = true)
     }
 
-    private fun query(collection: Uri) {
+    private fun query(collection: Uri, isAudio: Boolean) {
         val projection = arrayOf(MediaStore.MediaColumns._ID, MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.DURATION, MediaStore.MediaColumns.RELATIVE_PATH)
         val sort = MediaStore.MediaColumns.DISPLAY_NAME + " COLLATE NOCASE ASC"
         try {
@@ -466,9 +463,9 @@ class MainActivity : AppCompatActivity() {
                     val folder = path.substringAfterLast('/', path.ifBlank { "Internal storage" }).ifBlank { "Internal storage" }
                     // Keep videos stored in a directory named "Audio" accessible, but do not expose
                     // a separate Audio folder in this video-only library.
-                    val displayFolder = if (folder.equals("Audio", ignoreCase = true)) "Videos" else folder
+                    val displayFolder = folder
                     val uri = ContentUris.withAppendedId(collection, id)
-                    files.add(MediaFile(id, name, uri, displayFolder, if (durCol >= 0) c.getLong(durCol) else 0L))
+                    files.add(MediaFile(id, name, uri, displayFolder, if (durCol >= 0) c.getLong(durCol) else 0L, isAudio))
                 }
             }
         } catch (_: Exception) { }
@@ -529,7 +526,7 @@ class MainActivity : AppCompatActivity() {
         themeButton.setOnClickListener { isDark = !isDark; getSharedPreferences("clean_player_preferences", MODE_PRIVATE).edit().putBoolean("dark_theme", isDark).apply(); applyPalette(); showHome(search.text.toString()) }
         header.addView(toolbar)
         search = EditText(this).apply {
-            hint = "Search videos or folders on this device"
+            hint = "Search videos, audio or folders on this device"
             setSingleLine(true); textSize = 15f; setTextColor(this@MainActivity.text); setHintTextColor(muted)
             setPadding(dp(14), 0, dp(14), 0); background = LiquidGlass.panel(this@MainActivity)
             setText(filter)
@@ -561,10 +558,10 @@ class MainActivity : AppCompatActivity() {
         val q = filter.trim().lowercase(Locale.getDefault())
         val visible = files.filter { q.isBlank() || it.name.lowercase(Locale.getDefault()).contains(q) || it.folder.lowercase(Locale.getDefault()).contains(q) }
         val groups = visible.groupBy { it.folder }.toSortedMap(String.CASE_INSENSITIVE_ORDER)
-        content.addView(label("VIDEO FOLDERS", 12, muted, true))
+        content.addView(label("MEDIA FOLDERS", 12, muted, true))
         if (groups.isEmpty()) {
             val emptyTitle = if (files.isEmpty()) "Your library is waiting" else "No matching media"
-            val emptyMessage = if (files.isEmpty()) "Allow media access to see your videos here." else "Try another search term or clear your search."
+            val emptyMessage = if (files.isEmpty()) "Allow media access to see your videos and audio here." else "Try another search term or clear your search."
             content.addView(glassEmptyState(emptyTitle, emptyMessage),
                 LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
         } else {
@@ -583,7 +580,7 @@ class MainActivity : AppCompatActivity() {
                     if (preview != null) card.addView(preview, LinearLayout.LayoutParams(-1, dp(94)))
                     else card.addView(mediaTypePlaceholder(), LinearLayout.LayoutParams(-1, dp(94)))
                     card.addView(label(folder, 15, text, true).apply { gravity = Gravity.CENTER; maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END })
-                    card.addView(label("${items.size} videos", 12, muted, false).apply { gravity = Gravity.CENTER })
+                    card.addView(label("${items.size} media files", 12, muted, false).apply { gravity = Gravity.CENTER })
                     card.setOnClickListener { showFolder(folder, items) }
                     val params = GridLayout.LayoutParams().apply { width = 0; columnSpec = GridLayout.spec(GridLayout.UNDEFINED, 1f); setMargins(dp(4), dp(4), dp(4), dp(4)) }
                     grid.addView(card, params)
@@ -669,7 +666,7 @@ class MainActivity : AppCompatActivity() {
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
 
         if (items.isEmpty()) {
-            content.addView(glassEmptyState("This folder is empty", "There are no playable videos in this folder."),
+            content.addView(glassEmptyState("This folder is empty", "There are no playable media files in this folder."),
                 LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) })
         } else if (isGrid) {
             val grid = GridLayout(this).apply { columnCount = 2; useDefaultMargins = false }
@@ -781,7 +778,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun mediaThumbnail(file: MediaFile): ImageView? {
-        if (Build.VERSION.SDK_INT < 29) return null
+        if (file.isAudio || Build.VERSION.SDK_INT < 29) return null
         return try {
             val bitmap: Bitmap = contentResolver.loadThumbnail(file.uri, Size(dp(220), dp(140)), null)
             ImageView(this).apply {
