@@ -1366,7 +1366,7 @@ class MainActivity : AppCompatActivity() {
         playerControls = bottomPanel
         pv.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
 
-        val indicator = label("", 14, LiquidGlass.color(this, R.color.player_primary), true).apply {
+        val indicator = label("", 14, Color.WHITE, true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(16), dp(10), dp(16), dp(10))
             background = GradientDrawable().apply {
@@ -1377,7 +1377,7 @@ class MainActivity : AppCompatActivity() {
         }
         playerSeekIndicator = indicator
         pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        val holdIndicator = label("2×", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
+        val holdIndicator = label("2×", 12, Color.WHITE, true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(10), dp(5), dp(10), dp(5))
             background = GradientDrawable().apply { setColor(0xBF000000.toInt()); cornerRadius = dp(14).toFloat() }
@@ -1385,7 +1385,7 @@ class MainActivity : AppCompatActivity() {
             elevation = dp(8).toFloat()
         }
         longPress2xIndicator = holdIndicator
-        pv.addView(holdIndicator, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply { topMargin = dp(56) })
+        pv.addView(holdIndicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
 
         val zoomIndicator = label("100%", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
