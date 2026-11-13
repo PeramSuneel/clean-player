@@ -338,6 +338,10 @@ class MainActivity : AppCompatActivity() {
     private var playerCenterControls: LinearLayout? = null
     private var playerExpandButton: ImageButton? = null
     private var playerOptionsPopup: PopupWindow? = null
+    private var playerOptionsPopupAnchor: View? = null
+    private var playerOptionsPopupWidth = 0
+    private var playerOptionsPopupDesiredHeight = 0
+    private var playerOptionsPopupAlignRight = false
     private var playerOptionsOpen = false
     private var replacingPlayerPopup = false
     private var suppressPlayerAnimations = false
@@ -1759,8 +1763,8 @@ class MainActivity : AppCompatActivity() {
             options.clear()
             options.add("Audio tracks unavailable" to null)
         }
-        if (OVERLAY_ROW_FIX_V21_ENABLED) showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }, onSelect = { }, keepOnScreen = true)
-        else showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
+        if (OVERLAY_ROW_FIX_V21_ENABLED) showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }, compact = true, onSelect = { }, keepOnScreen = true)
+        else showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }, compact = true) { }
     }
 
     private fun showSubtitleTrackMenu(anchor: View) {
@@ -1817,8 +1821,8 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this, "Subtitle file loading is unavailable", Toast.LENGTH_SHORT).show()
             }
         })
-        if (OVERLAY_ROW_FIX_V21_ENABLED) showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }, onSelect = { }, keepOnScreen = true)
-        else showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }) { }
+        if (OVERLAY_ROW_FIX_V21_ENABLED) showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }, compact = true, onSelect = { }, keepOnScreen = true)
+        else showPlayerPopup(anchor, options.map { it.first }, options.map { it.second }, compact = true) { }
     }
 
     private fun applySubtitleFile(uri: Uri) {
@@ -2069,7 +2073,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        showPlayerPopup(anchor, labels, actions) { }
+        showPlayerPopup(anchor, labels, actions, compact = true, keepOnScreen = true) { }
     }
 
     private fun applyAspectRatioSelection(label: String) {
@@ -2141,8 +2145,10 @@ class MainActivity : AppCompatActivity() {
         val rows = choices.map { choice ->
             "${if (choice == current) "✓ " else ""}$choice" to {
                 try {
-                    applyAspectRatioSelection(choice)
+                    // Persist first because Original mode checks the saved selection.
+                    // The old order therefore skipped applying Original on the first tap.
                     prefs.edit().putString(key, choice).apply()
+                    applyAspectRatioSelection(choice)
                 } catch (_: Exception) { }
             }
         }
@@ -2165,19 +2171,22 @@ class MainActivity : AppCompatActivity() {
             replacingPlayerPopup = true
             if (previousPopup?.isShowing == true) previousPopup.dismiss()
             replacingPlayerPopup = false
+
             val content = LinearLayout(this).apply {
                 orientation = LinearLayout.VERTICAL
-                setPadding(if (compact) dp(4) else dp(8), if (compact) dp(3) else dp(6), if (compact) dp(4) else dp(8), if (compact) dp(3) else dp(6))
-                background = LiquidGlass.panel(this@MainActivity, 18)
+                setPadding(if (compact) dp(3) else dp(8), if (compact) dp(2) else dp(6),
+                    if (compact) dp(3) else dp(8), if (compact) dp(2) else dp(6))
+                background = LiquidGlass.panel(this@MainActivity, 16)
             }
             labels.forEachIndexed { index, labelText ->
                 val item = TextView(this).apply {
                     val selected = labelText.startsWith("✓ ")
                     val displayText = labelText.removePrefix("✓ ")
                     text = if (selected) android.text.SpannableString("✓  $displayText").apply {
-                        setSpan(android.text.style.ForegroundColorSpan(LiquidGlass.color(this@MainActivity, R.color.player_primary)), 0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+                        setSpan(android.text.style.ForegroundColorSpan(LiquidGlass.color(this@MainActivity, R.color.player_primary)),
+                            0, 1, android.text.Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
                     } else displayText
-                    textSize = 14f
+                    textSize = if (compact) 13f else 14f
                     setTextColor(LiquidGlass.color(this@MainActivity, R.color.player_primary))
                     gravity = Gravity.CENTER_VERTICAL
                     val icon = when (displayText) {
@@ -2188,21 +2197,22 @@ class MainActivity : AppCompatActivity() {
                     }
                     if (icon != 0) {
                         setCompoundDrawablesRelativeWithIntrinsicBounds(icon, 0, 0, 0)
-                        compoundDrawablePadding = dp(12)
+                        compoundDrawablePadding = dp(if (compact) 6 else 12)
                     }
-                    setPadding(if (compact) dp(10) else dp(14), if (compact) dp(4) else dp(10), if (compact) dp(10) else dp(18), if (compact) dp(4) else dp(10))
-                    minHeight = dp(if (compact) 40 else 48)
+                    setPadding(if (compact) dp(8) else dp(14), if (compact) dp(2) else dp(10),
+                        if (compact) dp(8) else dp(18), if (compact) dp(2) else dp(10))
+                    minHeight = dp(if (compact) 32 else 48)
                     isClickable = true
                     isFocusable = true
                     if (PLAYER_NO_YELLOW_ENABLED) {
-            try {
-                background = android.graphics.drawable.RippleDrawable(
-                    android.content.res.ColorStateList.valueOf(0x33FFFFFF),
-                    null,
-                    android.graphics.drawable.ColorDrawable(0xFFFFFFFF.toInt())
-                )
-            } catch (_: Exception) { }
-        }
+                        try {
+                            background = android.graphics.drawable.RippleDrawable(
+                                android.content.res.ColorStateList.valueOf(0x33FFFFFF),
+                                null,
+                                android.graphics.drawable.ColorDrawable(0xFFFFFFFF.toInt())
+                            )
+                        } catch (_: Exception) { }
+                    }
                     setOnClickListener {
                         val clickedPopup = playerOptionsPopup
                         try {
@@ -2223,76 +2233,107 @@ class MainActivity : AppCompatActivity() {
                 }
                 content.addView(item, LinearLayout.LayoutParams(if (compact) -2 else -1, -2))
             }
+
+            val maxPopupWidth = dp(if (compact) 180 else 280)
             content.measure(
-                View.MeasureSpec.makeMeasureSpec(dp(if (compact) 180 else 280), View.MeasureSpec.AT_MOST),
+                View.MeasureSpec.makeMeasureSpec(maxPopupWidth, View.MeasureSpec.AT_MOST),
                 View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
             )
-            val popupHeight = minOf(content.measuredHeight, resources.displayMetrics.heightPixels - dp(48)).coerceAtLeast(dp(80))
+            val desiredHeight = minOf(content.measuredHeight, resources.displayMetrics.heightPixels - dp(48)).coerceAtLeast(dp(1))
             val popupScroll = ScrollView(this).apply {
                 isFillViewport = false
                 isVerticalScrollBarEnabled = false
+                overScrollMode = View.OVER_SCROLL_NEVER
                 addView(content, ViewGroup.LayoutParams(if (compact) -2 else -1, -2))
             }
-            val popup = PopupWindow(popupScroll, if (compact) content.measuredWidth else dp(260), popupHeight, true).apply {
+            val popupWidth = if (compact) {
+                minOf(content.measuredWidth.coerceAtLeast(dp(96)), dp(180), resources.displayMetrics.widthPixels - dp(24))
+            } else minOf(dp(280), resources.displayMetrics.widthPixels - dp(24))
+            val popup = PopupWindow(popupScroll, popupWidth, desiredHeight, true).apply {
                 isOutsideTouchable = true
                 setBackgroundDrawable(android.graphics.drawable.ColorDrawable(Color.TRANSPARENT))
-                elevation = dp(12).toFloat()
+                elevation = dp(10).toFloat()
                 setOnDismissListener {
                     if (!replacingPlayerPopup) {
                         playerOptionsOpen = false
-                        playerOptionsPopup = null
+                        if (playerOptionsPopup === this) {
+                            playerOptionsPopup = null
+                            playerOptionsPopupAnchor = null
+                            playerOptionsPopupWidth = 0
+                            playerOptionsPopupDesiredHeight = 0
+                        }
                         scheduleControlsHide()
                     }
                 }
             }
             playerOptionsPopup = popup
+            playerOptionsPopupAnchor = anchor
+            playerOptionsPopupWidth = popupWidth
+            playerOptionsPopupDesiredHeight = desiredHeight
+            playerOptionsPopupAlignRight = compact
             playerOptionsOpen = true
+
             content.alpha = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0f else 1f
             content.scaleX = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
             content.scaleY = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
-            val popupWidth = if (compact) minOf(content.measuredWidth.coerceAtLeast(dp(96)), dp(180), resources.displayMetrics.widthPixels - dp(24)) else minOf(dp(280), resources.displayMetrics.widthPixels - dp(24))
-            popup.width = popupWidth
-            val location = IntArray(2)
-            anchor.getLocationOnScreen(location)
-            val screenHeight = resources.displayMetrics.heightPixels
-            val screenWidth = resources.displayMetrics.widthPixels
-            val seekLocation = IntArray(2)
-            val seekTop = playerSeekBar?.let { seek ->
-                seek.getLocationOnScreen(seekLocation)
-                seekLocation[1]
-            } ?: (screenHeight - dp(96))
-            val safeBottom = (seekTop - dp(8)).coerceAtLeast(dp(1))
-
-            // Size opens below the complete top options row; other menus open below
-            // their own anchor. All menus are clipped to the space above the seek bar.
-            val optionsRowBottom = if (compact) {
-                playerTopBar?.findViewWithTag<View>("player-options-row")?.let { row ->
-                    val rowLocation = IntArray(2)
-                    row.getLocationOnScreen(rowLocation)
-                    val rowContentWidth = (row as? ViewGroup)?.getChildAt(0)?.width?.takeIf { it > 0 } ?: row.width
-                    val popupLeft = location[0] + anchor.width - popupWidth
-                    val rowContentRight = rowLocation[0] + rowContentWidth
-                    val overlapsOptionsHorizontally = popupLeft < rowContentRight && location[0] + anchor.width > rowLocation[0]
-                    if (overlapsOptionsHorizontally) rowLocation[1] + row.height else null
-                }
-            } else null
-            val y = maxOf(location[1] + anchor.height + dp(4), optionsRowBottom?.plus(dp(4)) ?: 0)
-            val availableHeight = (safeBottom - y).coerceAtLeast(dp(1))
-            popup.height = minOf(popupHeight, availableHeight)
-
-            val x = if (compact) {
-                (location[0] + anchor.width - popupWidth).coerceIn(dp(12), (screenWidth - popupWidth - dp(12)).coerceAtLeast(dp(12)))
-            } else {
-                location[0].coerceIn(dp(12), (screenWidth - popupWidth - dp(12)).coerceAtLeast(dp(12)))
-            }
-            popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
+            positionPlayerPopup(anchor, popup, popupWidth, desiredHeight, compact, keepOnScreen)
             if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
                 content.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150L).start()
             }
         } catch (_: Exception) {
             playerOptionsOpen = false
             playerOptionsPopup = null
+            playerOptionsPopupAnchor = null
         }
+    }
+
+    private fun positionPlayerPopup(
+        anchor: View,
+        popup: PopupWindow,
+        width: Int,
+        desiredHeight: Int,
+        alignRight: Boolean,
+        keepOnScreen: Boolean
+    ) {
+        if (!anchor.isAttachedToWindow) return
+        val location = IntArray(2)
+        anchor.getLocationOnScreen(location)
+        val frame = android.graphics.Rect()
+        anchor.rootView.getWindowVisibleDisplayFrame(frame)
+        if (frame.width() <= 0 || frame.height() <= 0) {
+            frame.set(0, 0, resources.displayMetrics.widthPixels, resources.displayMetrics.heightPixels)
+        }
+        val seekLocation = IntArray(2)
+        val seekTop = playerSeekBar?.takeIf { it.isShown }?.let { seek ->
+            seek.getLocationOnScreen(seekLocation)
+            seekLocation[1]
+        } ?: frame.bottom
+        val safeTop = frame.top + dp(8)
+        val safeBottom = minOf(frame.bottom - dp(8), seekTop - dp(8)).coerceAtLeast(safeTop + dp(1))
+        val belowY = location[1] + anchor.height + dp(4)
+        val belowAvailable = (safeBottom - belowY).coerceAtLeast(0)
+        val aboveAvailable = (location[1] - safeTop - dp(4)).coerceAtLeast(0)
+        val shouldOpenAbove = keepOnScreen &&
+            belowAvailable < minOf(desiredHeight, dp(72)) && aboveAvailable > belowAvailable
+        val y = if (shouldOpenAbove) {
+            (location[1] - minOf(desiredHeight, aboveAvailable) - dp(4)).coerceAtLeast(safeTop)
+        } else belowY
+        val availableHeight = if (shouldOpenAbove) aboveAvailable else belowAvailable
+        val height = minOf(desiredHeight, availableHeight).coerceAtLeast(dp(1))
+        val minX = frame.left + dp(8)
+        val maxX = (frame.right - width - dp(8)).coerceAtLeast(minX)
+        val preferredX = if (alignRight) location[0] + anchor.width - width else location[0]
+        val x = preferredX.coerceIn(minX, maxX)
+        if (popup.isShowing) popup.update(x, y, width, height)
+        else popup.showAtLocation(anchor, Gravity.TOP or Gravity.LEFT, x, y)
+    }
+
+    private fun repositionPlayerPopupAfterLayout() {
+        val popup = playerOptionsPopup ?: return
+        val anchor = playerOptionsPopupAnchor ?: return
+        if (!popup.isShowing || !anchor.isAttachedToWindow) return
+        positionPlayerPopup(anchor, popup, playerOptionsPopupWidth, playerOptionsPopupDesiredHeight,
+            playerOptionsPopupAlignRight, true)
     }
 
     private fun scheduleLongPress2x() {
@@ -2601,6 +2642,10 @@ class MainActivity : AppCompatActivity() {
             applyPlayerLayoutMetrics(newConfig.orientation)
             playerSeekBar?.invalidate()
             playerControls?.requestLayout()
+            // Re-measure the active anchor after rotation and keep its popup attached.
+            playerView?.post {
+                playerTopBar?.post { repositionPlayerPopupAfterLayout() }
+            }
         }
         playerView?.post { suppressPlayerAnimations = false }
     }
