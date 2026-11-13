@@ -10,8 +10,8 @@ android {
         applicationId = "com.peramsuneel.cleanplayer.glass"
         minSdk = 23
         targetSdk = 35
-        versionCode = 22
-        versionName = "2.2"
+        versionCode = 23
+        versionName = "2.3"
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -26,7 +26,5 @@ dependencies {
     implementation("androidx.constraintlayout:constraintlayout:2.2.0")
     implementation("androidx.media3:media3-exoplayer:1.5.1")
     implementation("androidx.media3:media3-ui:1.5.1")
-    implementation("com.github.teamnewpipe:NewPipeExtractor:v0.26.5")
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs_nio:2.1.5")
 }
