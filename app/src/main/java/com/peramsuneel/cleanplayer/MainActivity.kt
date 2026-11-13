@@ -810,13 +810,18 @@ class MainActivity : AppCompatActivity() {
     private fun playbackPositionKey(file: MediaFile): String =
         "position_${Uri.encode(file.uri.toString())}"
 
+    private fun playbackPositionIsNearEnd(positionMs: Long, durationMs: Long): Boolean {
+        if (durationMs <= 0L) return false
+        val completionWindow = minOf(5_000L, (durationMs / 20L).coerceAtLeast(1L))
+        return positionMs >= durationMs - completionWindow
+    }
+
     private fun savedPlaybackPosition(file: MediaFile): Long? {
         val prefs = getSharedPreferences("clean_player_playback_positions", MODE_PRIVATE)
         val key = playbackPositionKey(file)
         if (!prefs.contains(key)) return null
         val saved = prefs.getLong(key, 0L).coerceAtLeast(0L)
-        val duration = file.duration
-        if (duration > 0L && saved >= duration - 5_000L) {
+        if (playbackPositionIsNearEnd(saved, file.duration)) {
             prefs.edit().remove(key).apply()
             return null
         }
@@ -831,7 +836,7 @@ class MainActivity : AppCompatActivity() {
         if (position == 0L && exo.playWhenReady && exo.playbackState != Player.STATE_ENDED) return
         val prefs = getSharedPreferences("clean_player_playback_positions", MODE_PRIVATE)
         val editor = prefs.edit()
-        if (duration > 0L && position >= duration - 5_000L) {
+        if (exo.playbackState == Player.STATE_ENDED || playbackPositionIsNearEnd(position, duration)) {
             editor.remove(playbackPositionKey(file))
         } else {
             editor.putLong(playbackPositionKey(file), position)
