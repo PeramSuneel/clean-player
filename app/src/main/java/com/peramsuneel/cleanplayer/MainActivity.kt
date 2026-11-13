@@ -419,7 +419,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun requestMediaPermission() {
-        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO)
+        val permissions = if (Build.VERSION.SDK_INT >= 33) arrayOf(Manifest.permission.READ_MEDIA_VIDEO, Manifest.permission.READ_MEDIA_AUDIO)
             else arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
         ActivityCompat.requestPermissions(this, permissions, 41)
     }
@@ -601,7 +601,7 @@ class MainActivity : AppCompatActivity() {
                     else row.addView(mediaTypePlaceholder(), LinearLayout.LayoutParams(dp(88), dp(66)))
                     val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
                     details.addView(label(folder, 15, text, true))
-                    details.addView(label("${items.size} videos", 12, muted, false))
+                    details.addView(label("${items.size} media files", 12, muted, false))
                     row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
                     row.setOnClickListener { showFolder(folder, items) }
                     content.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
@@ -639,7 +639,7 @@ class MainActivity : AppCompatActivity() {
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
         })
-        titleBlock.addView(label("${items.size} videos", 12, muted, false))
+        titleBlock.addView(label("${items.size} media files", 12, muted, false))
         head.addView(titleBlock, LinearLayout.LayoutParams(0, -2, 1f))
         val viewButton = button(if (isGrid) "Grid" else "List", false).apply {
             background = LiquidGlass.button(this@MainActivity, false)
