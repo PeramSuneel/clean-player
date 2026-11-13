@@ -2299,7 +2299,7 @@ class MainActivity : AppCompatActivity() {
             content.alpha = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0f else 1f
             content.scaleX = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
             content.scaleY = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0.96f else 1f
-            positionPlayerPopup(anchor, popup, popupWidth, desiredHeight, compact, keepOnScreen)
+            positionPlayerPopup(anchor, popup, popupWidth, desiredHeight, alignRight, keepOnScreen)
             if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) {
                 content.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(150L).start()
             }
