@@ -265,7 +265,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var root: LinearLayout
     private lateinit var search: EditText
     private val mainHandler = Handler(Looper.getMainLooper())
-    private var homeContent: LinearLayout? = null
     private var playerControls: View? = null
     private var playerSeekBar: PlayerSeekBar? = null
     private var seekBarUpdateRunnable: Runnable? = null
@@ -545,7 +544,6 @@ class MainActivity : AppCompatActivity() {
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(14), dp(8), dp(14), dp(30)) }
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
-        homeContent = content
         populateHomeContent(content, filter)
         search.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
