@@ -1376,7 +1376,7 @@ class MainActivity : AppCompatActivity() {
         }
         playerSeekIndicator = indicator
         pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
-        val holdIndicator = label("2x", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
+        val holdIndicator = label("2×", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(10), dp(5), dp(10), dp(5))
             background = GradientDrawable().apply { setColor(0xBF000000.toInt()); cornerRadius = dp(14).toFloat() }
@@ -1682,6 +1682,21 @@ class MainActivity : AppCompatActivity() {
         }
         playerSeekIndicator = indicator
         pv.addView(indicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
+
+        val holdIndicator = label("2×", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(5), dp(10), dp(5))
+            background = GradientDrawable().apply {
+                setColor(0xBF000000.toInt())
+                cornerRadius = dp(14).toFloat()
+            }
+            visibility = View.GONE
+            elevation = dp(8).toFloat()
+        }
+        longPress2xIndicator = holdIndicator
+        pv.addView(holdIndicator, FrameLayout.LayoutParams(-2, -2, Gravity.TOP or Gravity.CENTER_HORIZONTAL).apply {
+            topMargin = dp(56)
+        })
 
         val zoomIndicator = label("100%", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
             gravity = Gravity.CENTER
@@ -2073,12 +2088,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
-        showPlayerPopup(anchor, labels, actions, compact = true, keepOnScreen = true) { }
+        showPlayerPopup(anchor, labels, actions, compact = true, keepOnScreen = true, alignRight = false) { }
     }
 
     private fun applyAspectRatioSelection(label: String) {
         try {
             val view = playerView ?: return
+            // Clear any previous pinch/pan/flip transform before changing the
+            // renderer's resize policy. A Size selection is not a zoom gesture.
+            resetVideoZoom()
             val mode = when (label) {
                 "Fill" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FILL
                 "Zoom" -> androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_ZOOM
@@ -2086,13 +2104,27 @@ class MainActivity : AppCompatActivity() {
             }
             view.resizeMode = mode
             val contentFrame = view.findViewById<androidx.media3.ui.AspectRatioFrameLayout>(androidx.media3.ui.R.id.exo_content_frame)
-            if (label == "16:9" || label == "4:3") {
-                contentFrame?.setAspectRatio(if (label == "16:9") 16f / 9f else 4f / 3f)
-            } else if (label != "Original") {
-                contentFrame?.setAspectRatio(0f)
+            when (label) {
+                "16:9" -> contentFrame?.setAspectRatio(16f / 9f)
+                "4:3" -> contentFrame?.setAspectRatio(4f / 3f)
+                else -> contentFrame?.setAspectRatio(0f)
             }
-            resetVideoZoom()
+            view.requestLayout()
             if (ASPECT_RATIO_V21_ENABLED && label == "Original") applyOriginalPixelScale()
+            // Re-assert a neutral custom TextureView transform after the new
+            // content frame has completed its layout, so old zoom/pan state
+            // cannot enlarge the newly selected Size mode.
+            videoTransformView?.post {
+                try {
+                    if (!showingPlayer) return@post
+                    videoZoomScale = 1f
+                    videoZoomMatrix.reset()
+                    videoTransformView?.scaleX = 1f
+                    videoTransformView?.setTransform(videoZoomMatrix)
+                    videoTransformView?.invalidate()
+                    if (ASPECT_RATIO_V21_ENABLED && label == "Original") applyOriginalPixelScale()
+                } catch (_: Exception) { }
+            }
         } catch (_: Exception) { }
     }
 
@@ -2162,6 +2194,7 @@ class MainActivity : AppCompatActivity() {
         actions: List<(() -> Unit)?>?,
         compact: Boolean = false,
         keepOnScreen: Boolean = false,
+        alignRight: Boolean = compact,
         onSelect: (String) -> Unit
     ) {
         try {
@@ -2270,7 +2303,7 @@ class MainActivity : AppCompatActivity() {
             playerOptionsPopupAnchor = anchor
             playerOptionsPopupWidth = popupWidth
             playerOptionsPopupDesiredHeight = desiredHeight
-            playerOptionsPopupAlignRight = compact
+            playerOptionsPopupAlignRight = alignRight
             playerOptionsOpen = true
 
             content.alpha = if (PLAYER_SMOOTH_UI_ENABLED && !suppressPlayerAnimations) 0f else 1f
@@ -3005,6 +3038,11 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    override fun onStop() {
+        cancelLongPress2x()
+        super.onStop()
+    }
 
     override fun onDestroy() {
         cancelLongPress2x()
