@@ -10,7 +10,7 @@ android {
         applicationId = "com.peramsuneel.cleanplayer.glass"
         minSdk = 23
         targetSdk = 35
-        versionCode = 1
+        versionCode = 22
         versionName = "2.2"
     }
     compileOptions {
