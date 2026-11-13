@@ -94,7 +94,7 @@ internal const val OVERLAY_ROW_FIX_V21_ENABLED = true
 internal const val ICON_ROW_LEFT_V21_ENABLED = true
 private const val SEEK_BAR_STEP_MS = 3_000L
 private const val NEW_PLAYER_UI_ENABLED = true
-internal const val NEW_PLAYER_PIP_ENABLED = true
+internal const val NEW_PLAYER_PIP_ENABLED = false
 private const val PLAYER_NO_YELLOW_ENABLED = true
 internal const val PLAYER_BOTTOM_ROW_LAYOUT_ENABLED = true
 internal const val PLAYER_TOP_ROW_LAYOUT_ENABLED = true
@@ -265,6 +265,14 @@ class MainActivity : AppCompatActivity() {
     private lateinit var root: LinearLayout
     private lateinit var search: EditText
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val playbackPositionSaveRunnable = object : Runnable {
+        override fun run() {
+            if (showingPlayer) {
+                saveCurrentPlaybackPosition()
+                mainHandler.postDelayed(this, 1_000L)
+            }
+        }
+    }
     private var playerControls: View? = null
     private var playerSeekBar: PlayerSeekBar? = null
     private var seekBarUpdateRunnable: Runnable? = null
@@ -387,8 +395,16 @@ class MainActivity : AppCompatActivity() {
         deviceOrientationListener?.let { if (it.canDetectOrientation()) it.enable() }
     }
 
+    override fun onPause() {
+        cancelLongPress2x()
+        player?.pause()
+        saveCurrentPlaybackPosition()
+        super.onPause()
+    }
+
     override fun onStop() {
         cancelLongPress2x()
+        saveCurrentPlaybackPosition()
         deviceOrientationListener?.disable()
         super.onStop()
     }
@@ -471,6 +487,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showHome(filter: String = "") {
+        saveCurrentPlaybackPosition()
         controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
         controlsHideRunnable = null
         showingPlayer = false
@@ -790,7 +807,41 @@ class MainActivity : AppCompatActivity() {
         } catch (_: Exception) { null }
     }
 
+    private fun playbackPositionKey(file: MediaFile): String =
+        "position_${Uri.encode(file.uri.toString())}"
+
+    private fun savedPlaybackPosition(file: MediaFile): Long? {
+        val prefs = getSharedPreferences("clean_player_playback_positions", MODE_PRIVATE)
+        val key = playbackPositionKey(file)
+        if (!prefs.contains(key)) return null
+        val saved = prefs.getLong(key, 0L).coerceAtLeast(0L)
+        val duration = file.duration
+        if (duration > 0L && saved >= duration - 5_000L) {
+            prefs.edit().remove(key).apply()
+            return null
+        }
+        return saved
+    }
+
+    private fun saveCurrentPlaybackPosition() {
+        val exo = player ?: return
+        val file = queue.getOrNull(exo.currentMediaItemIndex) ?: return
+        val position = try { exo.currentPosition.coerceAtLeast(0L) } catch (_: Exception) { return }
+        val duration = try { exo.duration.takeIf { it > 0L } ?: file.duration } catch (_: Exception) { file.duration }
+        if (position == 0L && exo.playWhenReady && exo.playbackState != Player.STATE_ENDED) return
+        val prefs = getSharedPreferences("clean_player_playback_positions", MODE_PRIVATE)
+        val editor = prefs.edit()
+        if (duration > 0L && position >= duration - 5_000L) {
+            editor.remove(playbackPositionKey(file))
+        } else {
+            editor.putLong(playbackPositionKey(file), position)
+        }
+        editor.apply()
+    }
+
     private fun playItems(items: List<MediaFile>, index: Int) {
+        saveCurrentPlaybackPosition()
+        mainHandler.removeCallbacks(playbackPositionSaveRunnable)
         queue.clear(); queue.addAll(items); currentIndex = index
         currentPlayerTitle = queue.getOrNull(index)?.name ?: "Now playing"
         rotationManuallySelected = false
@@ -798,8 +849,11 @@ class MainActivity : AppCompatActivity() {
         val exo = buildPlayerSafely()
         player?.release(); player = exo
         try { if (SPEED_LABEL_LIVE_ENABLED) playerSpeedLabel?.text = "1X"; exo.setPlaybackParameters(androidx.media3.common.PlaybackParameters(1f)) } catch (_: Exception) { }
-        exo.setMediaItems(queue.map { MediaItem.fromUri(it.uri) }, index, 0L)
-        exo.prepare(); exo.playWhenReady = true
+        val initialFile = queue.getOrNull(index)
+        val restoredPosition = initialFile?.let { savedPlaybackPosition(it) }
+        exo.setMediaItems(queue.map { MediaItem.fromUri(it.uri) }, index, restoredPosition ?: 0L)
+        exo.prepare()
+        exo.playWhenReady = restoredPosition == null
         exo.addListener(object : Player.Listener {
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
                 currentIndex = exo.currentMediaItemIndex
@@ -830,6 +884,7 @@ class MainActivity : AppCompatActivity() {
             }
         })
         showPlayer()
+        mainHandler.postDelayed(playbackPositionSaveRunnable, 1_000L)
     }
 
     private fun showPlayer() {
@@ -2720,6 +2775,8 @@ class MainActivity : AppCompatActivity() {
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 
     override fun onDestroy() {
+        saveCurrentPlaybackPosition()
+        mainHandler.removeCallbacks(playbackPositionSaveRunnable)
         cancelLongPress2x()
         controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
         seekFeedbackHideRunnable?.let { mainHandler.removeCallbacks(it) }
