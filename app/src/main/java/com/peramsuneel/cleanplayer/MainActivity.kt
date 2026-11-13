@@ -1330,13 +1330,13 @@ class MainActivity : AppCompatActivity() {
         longPress2xIndicator = holdIndicator
         pv.addView(holdIndicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
 
-        val zoomIndicator = label("100%", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
+        val zoomIndicator = label("100%", 12, Color.WHITE, true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(9), dp(5), dp(9), dp(5))
             background = GradientDrawable().apply {
                 setColor(0xBF000000.toInt())
                 cornerRadius = dp(14).toFloat()
-                setStroke(dp(1), LiquidGlass.color(this@MainActivity, R.color.player_divider))
+                setStroke(dp(1), 0x55FFFFFF)
             }
             visibility = View.GONE
             elevation = dp(8).toFloat()
@@ -1640,13 +1640,13 @@ class MainActivity : AppCompatActivity() {
         longPress2xIndicator = holdIndicator
         pv.addView(holdIndicator, FrameLayout.LayoutParams(-2, -2, Gravity.CENTER))
 
-        val zoomIndicator = label("100%", 12, LiquidGlass.color(this, R.color.player_primary), true).apply {
+        val zoomIndicator = label("100%", 12, Color.WHITE, true).apply {
             gravity = Gravity.CENTER
             setPadding(dp(9), dp(5), dp(9), dp(5))
             background = GradientDrawable().apply {
                 setColor(0xBF000000.toInt())
                 cornerRadius = dp(14).toFloat()
-                setStroke(dp(1), LiquidGlass.color(this@MainActivity, R.color.player_divider))
+                setStroke(dp(1), 0x55FFFFFF)
             }
             visibility = View.GONE
             elevation = dp(8).toFloat()
