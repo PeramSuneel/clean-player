@@ -2111,20 +2111,9 @@ class MainActivity : AppCompatActivity() {
             }
             view.requestLayout()
             if (ASPECT_RATIO_V21_ENABLED && label == "Original") applyOriginalPixelScale()
-            // Re-assert a neutral custom TextureView transform after the new
-            // content frame has completed its layout, so old zoom/pan state
-            // cannot enlarge the newly selected Size mode.
-            videoTransformView?.post {
-                try {
-                    if (!showingPlayer) return@post
-                    videoZoomScale = 1f
-                    videoZoomMatrix.reset()
-                    videoTransformView?.scaleX = 1f
-                    videoTransformView?.setTransform(videoZoomMatrix)
-                    videoTransformView?.invalidate()
-                    if (ASPECT_RATIO_V21_ENABLED && label == "Original") applyOriginalPixelScale()
-                } catch (_: Exception) { }
-            }
+            // Request layout immediately so the selected resize mode takes effect
+            // on this selection, without carrying the previous pinch/pan state.
+            view.requestLayout()
         } catch (_: Exception) { }
     }
 
