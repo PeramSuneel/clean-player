@@ -34,6 +34,26 @@ jobs:
         run: gradle --no-daemon :app:testDebugUnitTest
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
+      - name: Verify APK is offline-only
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/debug/app-debug.apk"
+          AAPT="$(find "$ANDROID_HOME/build-tools" -type f -name aapt | sort -V | tail -n 1)"
+          test -n "$AAPT"
+          "$AAPT" dump permissions "$APK" | tee /tmp/clean-player-permissions.txt
+          if grep -Eq 'android.permission.(INTERNET|ACCESS_NETWORK_STATE)' /tmp/clean-player-permissions.txt; then
+            echo "Offline privacy check failed: network permission found in APK."
+            exit 1
+          fi
+          if grep -R -nE 'https?://|HttpURLConnection|OkHttpClient|NewPipe|ConnectivityManager' app/src/main/java; then
+            echo "Offline privacy check failed: network client or remote endpoint found in app source."
+            exit 1
+          fi
+          if grep -Eq 'NewPipeExtractor|okhttp' app/build.gradle.kts; then
+            echo "Offline privacy check failed: online networking dependency found."
+            exit 1
+          fi
+          echo "Offline privacy check passed: no network permissions or app networking code found."
       - name: Verify debug APK signing schemes and certificate
         run: |
           set -euo pipefail
