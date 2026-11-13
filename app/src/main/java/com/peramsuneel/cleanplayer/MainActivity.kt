@@ -30,10 +30,7 @@ import android.graphics.RectF
 import android.view.ScaleGestureDetector
 import android.view.TextureView
 import android.view.OrientationEventListener
-import android.graphics.BitmapFactory
 import android.content.Context
-import android.net.ConnectivityManager
-import android.net.NetworkCapabilities
 import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
@@ -64,12 +61,6 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
 import java.util.Locale
 import kotlin.math.roundToInt
-import java.net.HttpURLConnection
-import java.net.URL
-import java.util.concurrent.Executors
-import java.util.concurrent.Future
-import com.peramsuneel.cleanplayer.online.OnlineSearchRepository
-import com.peramsuneel.cleanplayer.online.OnlineSearchResult
 
 private const val HOME_BRAND_LOGO_ENABLED = true
 private const val VOLUME_PERCENT_INDICATOR_ENABLED = true
@@ -273,19 +264,8 @@ class MainActivity : AppCompatActivity() {
     private var showingPlayer = false
     private lateinit var root: LinearLayout
     private lateinit var search: EditText
-    private val onlineHandler = Handler(Looper.getMainLooper())
-    private val onlineExecutor = Executors.newSingleThreadExecutor()
-    private val thumbnailExecutor = Executors.newFixedThreadPool(2)
-    private var onlineSearchTask: Future<*>? = null
-    private var onlineResolveTask: Future<*>? = null
-    private var onlineDebounceRunnable: Runnable? = null
-    private var onlineTimeoutRunnable: Runnable? = null
-    private var onlineMode = false
-    private var onlineLoading = false
-    private var onlineError: String? = null
-    private var onlineResults: List<OnlineSearchResult> = emptyList()
+    private val mainHandler = Handler(Looper.getMainLooper())
     private var homeContent: LinearLayout? = null
-    private var onlineSection: LinearLayout? = null
     private var playerControls: View? = null
     private var playerSeekBar: PlayerSeekBar? = null
     private var seekBarUpdateRunnable: Runnable? = null
@@ -496,9 +476,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showHome(filter: String = "") {
-        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
         controlsHideRunnable = null
-        cancelOnlineWork()
         showingPlayer = false
         currentFolder = null
         manualOrientationOverride = null
@@ -557,27 +536,7 @@ class MainActivity : AppCompatActivity() {
             setText(filter)
         }
         val searchRow = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        searchRow.addView(search, LinearLayout.LayoutParams(0, dp(50), 1f).apply { marginEnd = dp(8) })
-        val onlineButton = button(if (onlineMode) "Online ✓" else "Online", onlineMode)
-        onlineButton.isEnabled = OnlineSearchRepository.ENABLE_ONLINE_SEARCH
-        onlineButton.contentDescription = "Toggle online search"
-        searchRow.addView(onlineButton, LinearLayout.LayoutParams(dp(88), dp(50)))
-        onlineButton.setOnClickListener {
-            onlineMode = !onlineMode
-            onlineButton.text = if (onlineMode) "Online ✓" else "Online"
-            onlineButton.background = LiquidGlass.button(this@MainActivity, onlineMode)
-            onlineError = null
-            onlineResults = emptyList()
-            if (onlineMode) {
-                val query = search.text.toString().trim()
-                if (query.isBlank()) onlineError = "Type a name, then search online."
-                else startOnlineSearch(query)
-            } else {
-                cancelOnlineSearchOnly()
-                onlineLoading = false
-            }
-            homeContent?.let { renderOnlineResults(it) }
-        }
+        searchRow.addView(search, LinearLayout.LayoutParams(-1, dp(50)))
         header.addView(searchRow, LinearLayout.LayoutParams(-1, dp(50)).apply { topMargin = dp(14) })
         root.addView(header, LinearLayout.LayoutParams(-1, -2).apply {
             setMargins(dp(14), dp(10), dp(14), dp(8))
@@ -587,18 +546,12 @@ class MainActivity : AppCompatActivity() {
         scroll.addView(content)
         root.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
         homeContent = content
-        onlineSection = null
         populateHomeContent(content, filter)
-        if (onlineMode) {
-            renderOnlineResults(content)
-            if (filter.isNotBlank()) scheduleOnlineSearch(filter)
-        }
         search.addTextChangedListener(object : android.text.TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
                 if (!showingPlayer) {
                     populateHomeContent(content, s.toString())
-                    if (onlineMode) scheduleOnlineSearch(s.toString()) else renderOnlineResults(content)
                 }
             }
             override fun afterTextChanged(s: android.text.Editable?) {}
@@ -663,8 +616,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showFolder(folder: String, items: List<MediaFile>) {
-        cancelOnlineWork()
-        onlineMode = false
         currentFolder = folder
         root.removeAllViews()
         root.setBackgroundColor(bg)
@@ -846,8 +797,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playItems(items: List<MediaFile>, index: Int) {
-        cancelOnlineWork()
-        onlineMode = false
         queue.clear(); queue.addAll(items); currentIndex = index
         currentPlayerTitle = queue.getOrNull(index)?.name ?: "Now playing"
         rotationManuallySelected = false
@@ -1288,7 +1237,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val exo = player
                     if (interacting) {
-                        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                        controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
                         seekWasPlaying = exo?.playWhenReady == true
                         exo?.pause()
                         if (LIVE_SCRUBBING_ENABLED) exo?.setSeekParameters(SeekParameters.CLOSEST_SYNC)
@@ -1460,7 +1409,7 @@ class MainActivity : AppCompatActivity() {
                 } finally {
                     bitmap.recycle()
                 }
-            }, onlineHandler)
+            }, mainHandler)
         } catch (_: Exception) {
             Toast.makeText(this, "Screenshot not available", Toast.LENGTH_SHORT).show()
         }
@@ -1490,7 +1439,7 @@ class MainActivity : AppCompatActivity() {
             if (isInPictureInPictureMode) {
                 playerTopBar?.visibility = View.GONE
                 playerControls?.visibility = View.GONE
-                controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
             } else if (showingPlayer) {
                 playerTopBar?.visibility = View.VISIBLE
                 playerControls?.visibility = View.VISIBLE
@@ -1519,7 +1468,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val exo = player
                     if (interacting) {
-                        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                        controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
                         seekWasPlaying = exo?.playWhenReady == true
                         exo?.pause()
                         if (LIVE_SCRUBBING_ENABLED) exo?.setSeekParameters(SeekParameters.CLOSEST_SYNC)
@@ -1620,7 +1569,7 @@ class MainActivity : AppCompatActivity() {
                         button.imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
                         button.setBackgroundColor(Color.TRANSPARENT)
                         if (playerControlsLocked) {
-                            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                            controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
                             result.topLayer.visibility = View.GONE
                             for (index in 0 until result.bottomLayer.childCount) {
                                 val child = result.bottomLayer.getChildAt(index)
@@ -1945,7 +1894,7 @@ class MainActivity : AppCompatActivity() {
                     try { bitmap.recycle() } catch (_: Exception) { }
                     Toast.makeText(this, "Couldn't save screenshot", Toast.LENGTH_SHORT).show()
                 }
-            }, onlineHandler)
+            }, mainHandler)
         } catch (_: Exception) {
             Toast.makeText(this, "Screenshot unavailable", Toast.LENGTH_SHORT).show()
         }
@@ -1996,7 +1945,7 @@ class MainActivity : AppCompatActivity() {
     private fun showVideoZoomLabel() {
         try {
             val view = zoomLabel ?: return
-            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            zoomLabelHideRunnable?.let { mainHandler.removeCallbacks(it) }
             view.text = "${(videoZoomScale * 100f).toInt()}%"
             view.visibility = View.VISIBLE
             view.alpha = 1f
@@ -2005,13 +1954,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun scheduleZoomLabelHide() {
         try {
-            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            zoomLabelHideRunnable?.let { mainHandler.removeCallbacks(it) }
             val hide = Runnable {
                 try { zoomLabel?.animate()?.alpha(0f)?.setDuration(180L)?.withEndAction { zoomLabel?.visibility = View.GONE }?.start() }
                 catch (_: Exception) { zoomLabel?.visibility = View.GONE }
             }
             zoomLabelHideRunnable = hide
-            onlineHandler.postDelayed(hide, 900L)
+            mainHandler.postDelayed(hide, 900L)
         } catch (_: Exception) { }
     }
 
@@ -2026,7 +1975,7 @@ class MainActivity : AppCompatActivity() {
             videoTransformView?.setTransform(videoZoomMatrix)
             zoomLabel?.visibility = View.GONE
             zoomLabel?.alpha = 1f
-            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            zoomLabelHideRunnable?.let { mainHandler.removeCallbacks(it) }
             zoomLabelHideRunnable = null
         } catch (_: Exception) { }
     }
@@ -2188,7 +2137,7 @@ class MainActivity : AppCompatActivity() {
         onSelect: (String) -> Unit
     ) {
         try {
-            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
             controlsHideRunnable = null
             val previousPopup = playerOptionsPopup
             replacingPlayerPopup = true
@@ -2376,12 +2325,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
         longPress2xRunnable = task
-        onlineHandler.postDelayed(task, 400L)
+        mainHandler.postDelayed(task, 400L)
     }
 
     private fun cancelLongPress2x() {
         try {
-            longPress2xRunnable?.let { onlineHandler.removeCallbacks(it) }
+            longPress2xRunnable?.let { mainHandler.removeCallbacks(it) }
             longPress2xRunnable = null
             if (longPress2xActive) {
                 val previous = longPress2xPreviousParameters
@@ -2429,7 +2378,7 @@ class MainActivity : AppCompatActivity() {
     private fun showSeekFeedback(message: String, fadeAfterMs: Long = 0L) {
         if (message.isBlank()) return
         val indicator = playerSeekIndicator ?: return
-        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable?.let { mainHandler.removeCallbacks(it) }
         indicator.animate().cancel()
         indicator.alpha = 1f
         indicator.text = message
@@ -2449,11 +2398,11 @@ class MainActivity : AppCompatActivity() {
             seekFeedbackHideRunnable = null
         }
         seekFeedbackHideRunnable = hide
-        onlineHandler.postDelayed(hide, fadeAfterMs.coerceAtLeast(0L))
+        mainHandler.postDelayed(hide, fadeAfterMs.coerceAtLeast(0L))
     }
 
     private fun hideSeekFeedback() {
-        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable?.let { mainHandler.removeCallbacks(it) }
         seekFeedbackHideRunnable = null
         playerSeekIndicator?.let { indicator ->
             indicator.animate().cancel()
@@ -2466,7 +2415,7 @@ class MainActivity : AppCompatActivity() {
     private fun togglePlayerControls() {
         if (playerControls?.visibility == View.VISIBLE) {
             hidePlayerControls()
-            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
         } else {
             showPlayerControls()
             scheduleControlsHide()
@@ -2535,28 +2484,28 @@ class MainActivity : AppCompatActivity() {
                     duration,
                     if (isOnline) exo?.bufferedPosition ?: 0L else 0L
                 )
-                onlineHandler.postDelayed(this, 250L)
+                mainHandler.postDelayed(this, 250L)
             }
         }
         seekBarUpdateRunnable = update
-        onlineHandler.post(update)
+        mainHandler.post(update)
     }
 
     private fun stopSeekBarUpdates() {
-        seekBarUpdateRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekBarUpdateRunnable?.let { mainHandler.removeCallbacks(it) }
         seekBarUpdateRunnable = null
     }
 
     private fun scheduleControlsHide() {
         if (playerOptionsOpen) return
-        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
         if (REPLAY_AT_END_ENABLED && player?.let { playbackIsAtEnd(it) } == true) {
             showPlayerControls()
             return
         }
         val hide = Runnable { hidePlayerControls() }
         controlsHideRunnable = hide
-        onlineHandler.postDelayed(hide, 3_000L)
+        mainHandler.postDelayed(hide, 3_000L)
     }
 
     private fun applyPlayerLayoutMetrics(orientation: Int) {
@@ -2673,257 +2622,6 @@ class MainActivity : AppCompatActivity() {
         playerView?.post { suppressPlayerAnimations = false }
     }
 
-    private fun cancelOnlineSearchOnly() {
-        onlineDebounceRunnable?.let { onlineHandler.removeCallbacks(it) }
-        onlineDebounceRunnable = null
-        onlineTimeoutRunnable?.let { onlineHandler.removeCallbacks(it) }
-        onlineTimeoutRunnable = null
-        onlineSearchTask?.cancel(true)
-        onlineSearchTask = null
-    }
-
-    private fun cancelOnlineWork() {
-        cancelOnlineSearchOnly()
-        onlineResolveTask?.cancel(true)
-        onlineResolveTask = null
-        onlineLoading = false
-    }
-
-    private fun scheduleOnlineSearch(query: String) {
-        cancelOnlineSearchOnly()
-        onlineError = null
-        onlineResults = emptyList()
-        val trimmed = query.trim()
-        if (trimmed.isEmpty()) {
-            onlineLoading = false
-            renderOnlineResults(homeContent ?: return)
-            return
-        }
-        onlineLoading = true
-        homeContent?.let { renderOnlineResults(it) }
-        val runnable = Runnable { startOnlineSearch(trimmed) }
-        onlineDebounceRunnable = runnable
-        onlineHandler.postDelayed(runnable, 450L)
-    }
-
-    private fun hasInternetConnection(): Boolean {
-        return try {
-            val manager = getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
-            val network = manager.activeNetwork ?: return false
-            val capabilities = manager.getNetworkCapabilities(network) ?: return false
-            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
-        } catch (_: Exception) {
-            false
-        }
-    }
-
-    private fun startOnlineSearch(query: String) {
-        if (!OnlineSearchRepository.ENABLE_ONLINE_SEARCH) {
-            onlineLoading = false
-            onlineError = "Online search is disabled."
-            homeContent?.let { renderOnlineResults(it) }
-            return
-        }
-        if (!hasInternetConnection()) {
-            onlineLoading = false
-            onlineError = "No network connection. Connect to the internet and try again."
-            homeContent?.let { renderOnlineResults(it) }
-            return
-        }
-        cancelOnlineSearchOnly()
-        onlineLoading = true
-        onlineError = null
-        homeContent?.let { renderOnlineResults(it) }
-        val task = onlineExecutor.submit {
-            try {
-                val found = OnlineSearchRepository.search(query)
-                onlineHandler.post {
-                    clearOnlineTimeout()
-                    if (!isFinishing && onlineMode && !showingPlayer && search.text.toString().trim() == query) {
-                        onlineLoading = false
-                        onlineResults = found
-                        onlineError = if (found.isEmpty()) "No results found." else null
-                        homeContent?.let { renderOnlineResults(it) }
-                    }
-                }
-            } catch (error: Exception) {
-                onlineHandler.post {
-                    clearOnlineTimeout()
-                    if (!isFinishing && onlineMode && !showingPlayer) {
-                        onlineLoading = false
-                        onlineError = if (error is InterruptedException) "Search cancelled." else "Could not load online results. Please try again."
-                        homeContent?.let { renderOnlineResults(it) }
-                    }
-                }
-            }
-        }
-        onlineSearchTask = task
-        scheduleOnlineTimeout(task, "Online search timed out. Please try again.")
-    }
-
-    private fun resolveOnlineResult(result: OnlineSearchResult) {
-        cancelOnlineSearchOnly()
-        onlineResolveTask?.cancel(true)
-        if (!hasInternetConnection()) {
-            onlineLoading = false
-            onlineError = "No network connection. Connect to the internet and try again."
-            homeContent?.let { renderOnlineResults(it) }
-            return
-        }
-        onlineLoading = true
-        onlineError = "Preparing ${result.title}…"
-        homeContent?.let { renderOnlineResults(it) }
-        val task = onlineExecutor.submit {
-            try {
-                val playableUrl = OnlineSearchRepository.resolve(result)
-                onlineHandler.post {
-                    clearOnlineTimeout()
-                    if (!isFinishing && onlineMode && !showingPlayer) {
-                        onlineLoading = false
-                        playExternalUrl(playableUrl, result.title)
-                    }
-                }
-            } catch (_: Exception) {
-                onlineHandler.post {
-                    clearOnlineTimeout()
-                    if (!isFinishing && onlineMode && !showingPlayer) {
-                        onlineLoading = false
-                        onlineError = "Could not open this result. Choose another result or try again."
-                        homeContent?.let { renderOnlineResults(it) }
-                    }
-                }
-            }
-        }
-        onlineResolveTask = task
-        scheduleOnlineTimeout(task, "Opening this result timed out. Please try again.")
-    }
-
-    private fun scheduleOnlineTimeout(task: Future<*>, message: String) {
-        clearOnlineTimeout()
-        val timeout = Runnable {
-            if (!task.isDone) {
-                task.cancel(true)
-                onlineLoading = false
-                onlineError = message
-                homeContent?.let { renderOnlineResults(it) }
-            }
-        }
-        onlineTimeoutRunnable = timeout
-        onlineHandler.postDelayed(timeout, 10_000L)
-    }
-
-    private fun clearOnlineTimeout() {
-        onlineTimeoutRunnable?.let { onlineHandler.removeCallbacks(it) }
-        onlineTimeoutRunnable = null
-    }
-
-    private fun renderOnlineResults(content: LinearLayout) {
-        onlineSection?.let { content.removeView(it) }
-        onlineSection = null
-        if (!onlineMode) return
-        val section = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(18), 0, dp(8))
-        }
-        onlineSection = section
-        section.addView(label("ONLINE RESULTS", 12, muted, true))
-        if (onlineLoading) {
-            val row = LinearLayout(this).apply {
-                orientation = LinearLayout.HORIZONTAL
-                gravity = Gravity.CENTER_VERTICAL
-                setPadding(0, dp(12), 0, dp(12))
-            }
-            row.addView(ProgressBar(this), LinearLayout.LayoutParams(dp(22), dp(22)).apply { marginEnd = dp(10) })
-            row.addView(label(onlineError ?: "Searching supported platforms…", 14, muted, false))
-            section.addView(row)
-        } else if (onlineError != null) {
-            section.addView(label(onlineError!!, 14, muted, false).apply { setPadding(0, dp(12), 0, dp(12)) })
-        } else if (onlineResults.isEmpty()) {
-            section.addView(label("Tap Online to search YouTube and supported platforms.", 14, muted, false).apply { setPadding(0, dp(12), 0, dp(12)) })
-        } else {
-            onlineResults.forEach { result ->
-                val row = LinearLayout(this).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    gravity = Gravity.CENTER_VERTICAL
-                    setPadding(dp(8), dp(8), dp(8), dp(8))
-                    background = LiquidGlass.panel(this@MainActivity, 20)
-                    elevation = LiquidGlass.elevation(this@MainActivity)
-                    clipToOutline = true
-                }
-                val thumbnail = ImageView(this).apply {
-                    scaleType = ImageView.ScaleType.CENTER_CROP
-                    background = LiquidGlass.thumbnail(this@MainActivity, 14)
-                    clipToOutline = true
-                    contentDescription = "Thumbnail for ${result.title}"
-                }
-                row.addView(thumbnail, LinearLayout.LayoutParams(dp(112), dp(72)).apply { marginEnd = dp(12) })
-                loadOnlineThumbnail(result.thumbnailUrl, thumbnail)
-                val details = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-                details.addView(label(result.title, 14, text, true).apply {
-                    maxLines = 2
-                    ellipsize = android.text.TextUtils.TruncateAt.END
-                })
-                val durationText = if (result.durationSeconds > 0) formatDuration(result.durationSeconds * 1000) else "Live / unknown duration"
-                details.addView(label("${result.serviceName}  •  $durationText", 12, muted, false))
-                row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
-                row.setOnClickListener { resolveOnlineResult(result) }
-                section.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(7) })
-            }
-        }
-        content.addView(section)
-    }
-
-    private fun loadOnlineThumbnail(url: String?, image: ImageView) {
-        if (url.isNullOrBlank()) return
-        image.tag = url
-        thumbnailExecutor.execute {
-            val bitmap = try {
-                val connection = URL(url).openConnection() as HttpURLConnection
-                connection.connectTimeout = 5_000
-                connection.readTimeout = 5_000
-                connection.instanceFollowRedirects = true
-                connection.inputStream.use { BitmapFactory.decodeStream(it) }.also { connection.disconnect() }
-            } catch (_: Exception) {
-                null
-            }
-            if (bitmap != null) image.post {
-                if (image.tag == url) image.setImageBitmap(bitmap)
-            }
-        }
-    }
-
-    private fun playExternalUrl(url: String, title: String) {
-        cancelOnlineWork()
-        onlineMode = false
-        currentPlayerTitle = title
-        queue.clear()
-        currentIndex = 0
-        rotationManuallySelected = false
-        playerOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
-        val exo = buildPlayerSafely()
-        player?.release()
-        player = exo
-        exo.addListener(object : Player.Listener {
-            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
-                if (REPLAY_AT_END_ENABLED && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) {
-                    handlePlaybackEnded(exo)
-                }
-            }
-            override fun onPlaybackStateChanged(playbackState: Int) {
-                if (REPLAY_AT_END_ENABLED && playbackState == Player.STATE_ENDED) handlePlaybackEnded(exo)
-            }
-            override fun onVideoSizeChanged(videoSize: androidx.media3.common.VideoSize) {
-                applyVideoDefaultOrientation(videoSize)
-                if (ASPECT_RATIO_V21_ENABLED && isOriginalAspectRatioSelected()) applyOriginalPixelScale()
-            }
-        })
-        try { if (SPEED_LABEL_LIVE_ENABLED) playerSpeedLabel?.text = "1X"; exo.setPlaybackParameters(androidx.media3.common.PlaybackParameters(1f)) } catch (_: Exception) { }
-        exo.setMediaItem(MediaItem.fromUri(url))
-        exo.prepare()
-        exo.playWhenReady = true
-        showPlayer()
-    }
-
     private fun applyPlayerOrientation(orientation: Int) {
         if (!showingPlayer && orientation != ActivityInfo.SCREEN_ORIENTATION_PORTRAIT) return
         playerOrientation = orientation
@@ -2993,7 +2691,7 @@ class MainActivity : AppCompatActivity() {
             if (player !== exo || !REPLAY_AT_END_ENABLED) return
             showPlayerControls()
             updatePlayerTitle()
-            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
             controlsHideRunnable = null
         } catch (_: Exception) {
             // Playback remains available if end-of-item UI updates fail.
@@ -3031,14 +2729,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         cancelLongPress2x()
-        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
-        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        controlsHideRunnable?.let { mainHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable?.let { mainHandler.removeCallbacks(it) }
         seekFeedbackHideRunnable = null
         playerSeekIndicator?.animate()?.cancel()
         stopSeekBarUpdates()
-        cancelOnlineWork()
-        onlineExecutor.shutdownNow()
-        thumbnailExecutor.shutdownNow()
         player?.release(); player = null
         super.onDestroy()
     }
