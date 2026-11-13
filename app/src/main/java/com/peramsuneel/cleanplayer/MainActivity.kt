@@ -409,6 +409,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        cancelLongPress2x()
         deviceOrientationListener?.disable()
         super.onStop()
     }
@@ -3027,11 +3028,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
-
-    override fun onStop() {
-        cancelLongPress2x()
-        super.onStop()
-    }
 
     override fun onDestroy() {
         cancelLongPress2x()
