@@ -475,7 +475,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showHome(filter: String = "") {
-        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
         controlsHideRunnable = null
         showingPlayer = false
         currentFolder = null
@@ -612,7 +612,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showFolder(folder: String, items: List<MediaFile>) {
-        cancelOnlineWork()
         currentFolder = folder
         root.removeAllViews()
         root.setBackgroundColor(bg)
@@ -794,8 +793,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun playItems(items: List<MediaFile>, index: Int) {
-        cancelOnlineWork()
-        onlineMode = false
         queue.clear(); queue.addAll(items); currentIndex = index
         currentPlayerTitle = queue.getOrNull(index)?.name ?: "Now playing"
         rotationManuallySelected = false
@@ -1236,7 +1233,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val exo = player
                     if (interacting) {
-                        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                        controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
                         seekWasPlaying = exo?.playWhenReady == true
                         exo?.pause()
                         if (LIVE_SCRUBBING_ENABLED) exo?.setSeekParameters(SeekParameters.CLOSEST_SYNC)
@@ -1252,10 +1249,8 @@ class MainActivity : AppCompatActivity() {
             { target ->
                 try {
                     val exo = player ?: return@PlayerSeekBar
-                    val uri = exo.currentMediaItem?.localConfiguration?.uri
-                    val online = uri?.scheme.equals("http", true) || uri?.scheme.equals("https", true)
                     val now = SystemClock.elapsedRealtime()
-                    if (!online && now - lastLiveSeekAt >= 200L) {
+                    if (now - lastLiveSeekAt >= 200L) {
                         lastLiveSeekAt = now
                         exo.setSeekParameters(SeekParameters.CLOSEST_SYNC)
                         exo.seekTo(target)
@@ -1408,7 +1403,7 @@ class MainActivity : AppCompatActivity() {
                 } finally {
                     bitmap.recycle()
                 }
-            }, onlineHandler)
+            }, uiHandler)
         } catch (_: Exception) {
             Toast.makeText(this, "Screenshot not available", Toast.LENGTH_SHORT).show()
         }
@@ -1438,7 +1433,7 @@ class MainActivity : AppCompatActivity() {
             if (isInPictureInPictureMode) {
                 playerTopBar?.visibility = View.GONE
                 playerControls?.visibility = View.GONE
-                controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
             } else if (showingPlayer) {
                 playerTopBar?.visibility = View.VISIBLE
                 playerControls?.visibility = View.VISIBLE
@@ -1467,7 +1462,7 @@ class MainActivity : AppCompatActivity() {
                 try {
                     val exo = player
                     if (interacting) {
-                        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                        controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
                         seekWasPlaying = exo?.playWhenReady == true
                         exo?.pause()
                         if (LIVE_SCRUBBING_ENABLED) exo?.setSeekParameters(SeekParameters.CLOSEST_SYNC)
@@ -1483,10 +1478,8 @@ class MainActivity : AppCompatActivity() {
             { target ->
                 try {
                     val exo = player ?: return@PlayerSeekBar
-                    val uri = exo.currentMediaItem?.localConfiguration?.uri
-                    val online = uri?.scheme.equals("http", true) || uri?.scheme.equals("https", true)
                     val now = SystemClock.elapsedRealtime()
-                    if (!online && now - lastLiveSeekAt >= 200L) {
+                    if (now - lastLiveSeekAt >= 200L) {
                         lastLiveSeekAt = now
                         exo.setSeekParameters(SeekParameters.CLOSEST_SYNC)
                         exo.seekTo(target)
@@ -1568,7 +1561,7 @@ class MainActivity : AppCompatActivity() {
                         button.imageTintList = android.content.res.ColorStateList.valueOf(Color.WHITE)
                         button.setBackgroundColor(Color.TRANSPARENT)
                         if (playerControlsLocked) {
-                            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+                            controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
                             result.topLayer.visibility = View.GONE
                             for (index in 0 until result.bottomLayer.childCount) {
                                 val child = result.bottomLayer.getChildAt(index)
@@ -1893,7 +1886,7 @@ class MainActivity : AppCompatActivity() {
                     try { bitmap.recycle() } catch (_: Exception) { }
                     Toast.makeText(this, "Couldn't save screenshot", Toast.LENGTH_SHORT).show()
                 }
-            }, onlineHandler)
+            }, uiHandler)
         } catch (_: Exception) {
             Toast.makeText(this, "Screenshot unavailable", Toast.LENGTH_SHORT).show()
         }
@@ -1944,7 +1937,7 @@ class MainActivity : AppCompatActivity() {
     private fun showVideoZoomLabel() {
         try {
             val view = zoomLabel ?: return
-            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            zoomLabelHideRunnable?.let { uiHandler.removeCallbacks(it) }
             view.text = "${(videoZoomScale * 100f).toInt()}%"
             view.visibility = View.VISIBLE
             view.alpha = 1f
@@ -1953,13 +1946,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun scheduleZoomLabelHide() {
         try {
-            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            zoomLabelHideRunnable?.let { uiHandler.removeCallbacks(it) }
             val hide = Runnable {
                 try { zoomLabel?.animate()?.alpha(0f)?.setDuration(180L)?.withEndAction { zoomLabel?.visibility = View.GONE }?.start() }
                 catch (_: Exception) { zoomLabel?.visibility = View.GONE }
             }
             zoomLabelHideRunnable = hide
-            onlineHandler.postDelayed(hide, 900L)
+            uiHandler.postDelayed(hide, 900L)
         } catch (_: Exception) { }
     }
 
@@ -1974,7 +1967,7 @@ class MainActivity : AppCompatActivity() {
             videoTransformView?.setTransform(videoZoomMatrix)
             zoomLabel?.visibility = View.GONE
             zoomLabel?.alpha = 1f
-            zoomLabelHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            zoomLabelHideRunnable?.let { uiHandler.removeCallbacks(it) }
             zoomLabelHideRunnable = null
         } catch (_: Exception) { }
     }
@@ -2136,7 +2129,7 @@ class MainActivity : AppCompatActivity() {
         onSelect: (String) -> Unit
     ) {
         try {
-            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
             controlsHideRunnable = null
             val previousPopup = playerOptionsPopup
             replacingPlayerPopup = true
@@ -2324,12 +2317,12 @@ class MainActivity : AppCompatActivity() {
             }
         }
         longPress2xRunnable = task
-        onlineHandler.postDelayed(task, 400L)
+        uiHandler.postDelayed(task, 400L)
     }
 
     private fun cancelLongPress2x() {
         try {
-            longPress2xRunnable?.let { onlineHandler.removeCallbacks(it) }
+            longPress2xRunnable?.let { uiHandler.removeCallbacks(it) }
             longPress2xRunnable = null
             if (longPress2xActive) {
                 val previous = longPress2xPreviousParameters
@@ -2377,7 +2370,7 @@ class MainActivity : AppCompatActivity() {
     private fun showSeekFeedback(message: String, fadeAfterMs: Long = 0L) {
         if (message.isBlank()) return
         val indicator = playerSeekIndicator ?: return
-        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable?.let { uiHandler.removeCallbacks(it) }
         indicator.animate().cancel()
         indicator.alpha = 1f
         indicator.text = message
@@ -2397,11 +2390,11 @@ class MainActivity : AppCompatActivity() {
             seekFeedbackHideRunnable = null
         }
         seekFeedbackHideRunnable = hide
-        onlineHandler.postDelayed(hide, fadeAfterMs.coerceAtLeast(0L))
+        uiHandler.postDelayed(hide, fadeAfterMs.coerceAtLeast(0L))
     }
 
     private fun hideSeekFeedback() {
-        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable?.let { uiHandler.removeCallbacks(it) }
         seekFeedbackHideRunnable = null
         playerSeekIndicator?.let { indicator ->
             indicator.animate().cancel()
@@ -2414,7 +2407,7 @@ class MainActivity : AppCompatActivity() {
     private fun togglePlayerControls() {
         if (playerControls?.visibility == View.VISIBLE) {
             hidePlayerControls()
-            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
         } else {
             showPlayerControls()
             scheduleControlsHide()
@@ -2476,35 +2469,33 @@ class MainActivity : AppCompatActivity() {
                 }
                 val exo = player
                 val duration = exo?.duration?.takeIf { it > 0L } ?: 0L
-                val uri = exo?.currentMediaItem?.localConfiguration?.uri
-                val isOnline = uri?.scheme.equals("http", true) || uri?.scheme.equals("https", true)
                 playerSeekBar?.update(
                     exo?.currentPosition ?: 0L,
                     duration,
-                    if (isOnline) exo?.bufferedPosition ?: 0L else 0L
+                    exo?.bufferedPosition ?: 0L
                 )
-                onlineHandler.postDelayed(this, 250L)
+                uiHandler.postDelayed(this, 250L)
             }
         }
         seekBarUpdateRunnable = update
-        onlineHandler.post(update)
+        uiHandler.post(update)
     }
 
     private fun stopSeekBarUpdates() {
-        seekBarUpdateRunnable?.let { onlineHandler.removeCallbacks(it) }
+        seekBarUpdateRunnable?.let { uiHandler.removeCallbacks(it) }
         seekBarUpdateRunnable = null
     }
 
     private fun scheduleControlsHide() {
         if (playerOptionsOpen) return
-        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
         if (REPLAY_AT_END_ENABLED && player?.let { playbackIsAtEnd(it) } == true) {
             showPlayerControls()
             return
         }
         val hide = Runnable { hidePlayerControls() }
         controlsHideRunnable = hide
-        onlineHandler.postDelayed(hide, 3_000L)
+        uiHandler.postDelayed(hide, 3_000L)
     }
 
     private fun applyPlayerLayoutMetrics(orientation: Int) {
@@ -2690,7 +2681,7 @@ class MainActivity : AppCompatActivity() {
             if (player !== exo || !REPLAY_AT_END_ENABLED) return
             showPlayerControls()
             updatePlayerTitle()
-            controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+            controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
             controlsHideRunnable = null
         } catch (_: Exception) {
             // Playback remains available if end-of-item UI updates fail.
@@ -2728,12 +2719,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onDestroy() {
         cancelLongPress2x()
-        controlsHideRunnable?.let { onlineHandler.removeCallbacks(it) }
-        seekFeedbackHideRunnable?.let { onlineHandler.removeCallbacks(it) }
+        controlsHideRunnable?.let { uiHandler.removeCallbacks(it) }
+        seekFeedbackHideRunnable?.let { uiHandler.removeCallbacks(it) }
         seekFeedbackHideRunnable = null
         playerSeekIndicator?.animate()?.cancel()
         stopSeekBarUpdates()
-        cancelOnlineWork()
         player?.release(); player = null
         super.onDestroy()
     }
