@@ -2269,7 +2269,11 @@ class MainActivity : AppCompatActivity() {
                 playerTopBar?.findViewWithTag<View>("player-options-row")?.let { row ->
                     val rowLocation = IntArray(2)
                     row.getLocationOnScreen(rowLocation)
-                    rowLocation[1] + row.height
+                    val rowContentWidth = (row as? ViewGroup)?.getChildAt(0)?.width?.takeIf { it > 0 } ?: row.width
+                    val popupLeft = location[0] + anchor.width - popupWidth
+                    val rowContentRight = rowLocation[0] + rowContentWidth
+                    val overlapsOptionsHorizontally = popupLeft < rowContentRight && location[0] + anchor.width > rowLocation[0]
+                    if (overlapsOptionsHorizontally) rowLocation[1] + row.height else null
                 }
             } else null
             val y = maxOf(location[1] + anchor.height + dp(4), optionsRowBottom?.plus(dp(4)) ?: 0)
