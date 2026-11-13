@@ -2152,7 +2152,7 @@ class MainActivity : AppCompatActivity() {
                 } catch (_: Exception) { }
             }
         }
-        if (ASPECT_RATIO_V21_ENABLED) showPlayerPopup(anchor, rows.map { it.first }, rows.map { it.second }, onSelect = { }, compact = true)
+        if (ASPECT_RATIO_V21_ENABLED) showPlayerPopup(anchor, rows.map { it.first }, rows.map { it.second }, onSelect = { }, compact = true, keepOnScreen = true)
         else showPlayerPopup(anchor, rows.map { it.first }, rows.map { it.second }) { }
     }
 
